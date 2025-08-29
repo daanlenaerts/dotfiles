@@ -1,0 +1,9 @@
+include "%H/.local/share/omarchy/default/xcompose"
+
+# Identification
+<Multi_key> <space> <n> : "Daan Lenaerts"
+<Multi_key> <space> <e> : "me@daanlenaerts.com"
+
+# Emoji
+<Multi_key> <m> <s> : "😀" # smile
+<Multi_key> <m> <m> : "🙈" # monkey
