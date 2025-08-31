@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# Copy absolute path of file/directory to wayland/xorg clipboard.
+#
+# REQUIRES: wl-clipboard, xclip.
+
+SELECTED_FILES=$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS
+
+echo $SELECTED_FILES | xclip
+wl-copy $SELECTED_FILES
+
+if [ $? -eq 0 ]; then
+    notify-send "Copy path" "Copied path to clipboard"
+else
+    notify-send "Copy path" "Failed to copy path to clipboard"
+fi
