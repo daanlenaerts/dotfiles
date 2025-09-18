@@ -7,3 +7,5 @@ include "%H/.local/share/omarchy/default/xcompose"
 # Emoji
 <Multi_key> <m> <s> : "😀" # smile
 <Multi_key> <m> <m> : "🙈" # monkey
+<Multi_key> <m> <p> : "😛" # stuck out tongue
+<Multi_key> <m> <g> : "😁" # grin
