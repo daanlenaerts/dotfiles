@@ -9,4 +9,5 @@ include "%H/.local/share/omarchy/default/xcompose"
 <Multi_key> <m> <m> : "🙈" # monkey
 <Multi_key> <m> <p> : "😛" # stuck out tongue
 <Multi_key> <m> <g> : "😁" # grin
+<Multi_key> <m> <b> : "😊" # blush
 <Multi_key> <m> <6> : "😄" # grin
