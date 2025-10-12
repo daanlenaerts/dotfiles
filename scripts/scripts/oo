@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+cd ~/git/online-orbit-assistant
+bun run index.ts "$@"
