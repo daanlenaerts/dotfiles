@@ -18,4 +18,7 @@ stow scripts    # Scripts
 # Add scripts to PATH
 echo 'export PATH="$HOME/scripts:$PATH"' >> ~/.bashrc
 source ~/.bashrc
+
+# Adopting a configuration after changes (e.g. a system update)
+stow -t ~ --adopt waybar
 ```
