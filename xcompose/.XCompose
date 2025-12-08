@@ -3,6 +3,7 @@ include "%H/.local/share/omarchy/default/xcompose"
 # Identification
 <Multi_key> <space> <n> : "Daan Lenaerts"
 <Multi_key> <space> <e> : "me@daanlenaerts.com"
+<Multi_key> <space> <b> : "0659689080"
 
 # Emoji
 <Multi_key> <m> <s> : "😀" # smile
