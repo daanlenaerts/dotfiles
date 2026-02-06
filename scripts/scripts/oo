@@ -1,3 +1,10 @@
 #!/usr/bin/env bash
-cd ~/git/online-orbit-assistant
-bun run index.ts "$@"
+#cd ~/git/online-orbit-assistant
+#bun run index.ts "$@"
+
+PROJECT_DIR="$HOME/git/online-orbit-assistant"
+
+# Run Bun with the .env file from the project directory
+# Use absolute path to index.ts so Bun can find it
+# Don't change directory, so process.cwd() stays as the original directory
+bun run --env-file="$PROJECT_DIR/.env" "$PROJECT_DIR/index.ts" "$@"
