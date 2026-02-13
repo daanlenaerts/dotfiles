@@ -9,7 +9,7 @@
 # it gets replaced by the "replace" string.
 
 # yaml-language-server: $schema=https://raw.githubusercontent.com/espanso/espanso/dev/schemas/match.schema.json
-
+search_shortcut: off
 matches:
   # Simple text replacement
   - trigger: ":espanso"
