@@ -14,6 +14,10 @@ stow waybar      # Waybar config
 stow xcompose    # XCompose shortcuts
 stow nautilus    # Nautilus scripts 
 stow scripts    # Scripts
+stow espanso    # Espanso snippets
+
+# Restart Espanso
+espanso service restart
 
 # Add scripts to PATH
 echo 'export PATH="$HOME/scripts:$PATH"' >> ~/.bashrc
