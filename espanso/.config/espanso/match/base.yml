@@ -20,7 +20,7 @@ matches:
   # But matches can also be dynamic:
 
   # Print the current date
-  - trigger: ":d"
+  - trigger: ":date"
     replace: "{{mydate}}"
     vars:
       - name: mydate
@@ -29,7 +29,7 @@ matches:
           format: "%Y-%m-%d"
 
   # Print the current timestamp
-  - trigger: ":t"
+  - trigger: ":now"
     replace: "{{mydate}}"
     vars:
       - name: mydate
