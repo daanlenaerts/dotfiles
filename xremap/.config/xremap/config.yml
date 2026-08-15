@@ -1,6 +1,0 @@
-keymap:
-  - name: Signal Escape closes chat
-    application:
-      only: signal
-    remap:
-      ESC: C-Shift-c
