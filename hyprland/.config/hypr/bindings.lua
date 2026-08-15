@@ -18,6 +18,10 @@ o.bind("SUPER + SHIFT + BACKSPACE", "Browser", 'omarchy-launch-browser --profile
 
 -- Applications ----------------------------------------------------------------
 
+-- Was: ChatGPT as a web app. The native desktop app is installed instead.
+hl.unbind("SUPER + SHIFT + A")
+o.bind("SUPER + SHIFT + A", "ChatGPT", { launch = "chatgpt", focus = "^chatgpt$" })
+
 -- Was: Obsidian without the GPU workaround
 hl.unbind("SUPER + SHIFT + O")
 o.bind("SUPER + SHIFT + O", "Obsidian", { launch = "obsidian -disable-gpu", focus = "^obsidian$" })
@@ -34,10 +38,6 @@ o.bind("SUPER + SHIFT + T", "Activity", { tui = "btop" })
 o.bind("SUPER + SHIFT + L", "Toggl Track", { tui = home .. "/git/toggl-cli/toggl-cli" })
 
 -- Web apps --------------------------------------------------------------------
-
--- Was: ChatGPT in the default profile
-hl.unbind("SUPER + SHIFT + A")
-o.bind("SUPER + SHIFT + A", "ChatGPT", 'omarchy-launch-webapp "https://chatgpt.com" --profile-directory="Profile 1"')
 
 o.bind("SUPER + SHIFT + Q", "Claude", 'omarchy-launch-webapp "https://claude.ai" --profile-directory="Profile 1"')
 
