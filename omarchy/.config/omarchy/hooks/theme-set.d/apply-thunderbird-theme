@@ -1,6 +1,7 @@
 #!/bin/bash
 # Apply a theme's Thunderbird WebExtension theme (thunderbird/manifest.json).
-# Called by omarchy-hook after `omarchy theme set`. Missing theme files are a no-op.
+# Called by omarchy-hook after `omarchy theme set`. Missing theme files revert
+# the managed profile overlay so Thunderbird's default theme returns.
 
 set -euo pipefail
 
@@ -16,10 +17,6 @@ if [[ ! -f $THEME_SRC/manifest.json && -n $THEME_NAME ]]; then
   THEME_SRC="$HOME/.config/omarchy/themes/$THEME_NAME/thunderbird"
 fi
 
-if [[ ! -f $THEME_SRC/manifest.json ]]; then
-  exit 0
-fi
-
 python3 - "$THEME_SRC" <<'PY'
 from __future__ import annotations
 
@@ -29,31 +26,28 @@ import sys
 import zipfile
 from pathlib import Path
 
-theme_src = Path(sys.argv[1]).expanduser().resolve()
-manifest = json.loads((theme_src / "manifest.json").read_text())
-addon_id = (
-    manifest.get("browser_specific_settings", {})
-    .get("gecko", {})
-    .get("id")
-) or manifest.get("applications", {}).get("gecko", {}).get("id")
-if not addon_id or "/" in addon_id or addon_id in {".", ".."}:
-    raise SystemExit("Thunderbird theme manifest is missing a valid gecko id")
+theme_src = Path(sys.argv[1]).expanduser()
+manifest_path = theme_src / "manifest.json"
 
 marker_begin = "// BEGIN omarchy-thunderbird-theme"
 marker_end = "// END omarchy-thunderbird-theme"
 css_marker_begin = "/* BEGIN omarchy-thunderbird-theme */"
 css_marker_end = "/* END omarchy-thunderbird-theme */"
-user_js_block = "\n".join(
+active_theme_re = re.compile(
+    r'user_pref\("extensions\.activeThemeID",\s*"([^"]+)"\s*\);'
+)
+
+# Thunderbird defaults: system theme, stock page colors, don't sideload
+# from the profile, and don't load userChrome/userContent unless asked.
+revert_user_js_block = "\n".join(
     [
         marker_begin,
-        f'user_pref("extensions.activeThemeID", {json.dumps(addon_id)});',
-        # Allow this profile-sideloaded theme to enable without a prompt.
-        # 14 = default 15 minus SCOPE_PROFILE (1).
-        'user_pref("extensions.autoDisableScopes", 14);',
-        'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);',
+        'user_pref("extensions.activeThemeID", "default-theme@mozilla.org");',
+        'user_pref("extensions.autoDisableScopes", 15);',
+        'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", false);',
         'user_pref("browser.display.use_system_colors", false);',
-        'user_pref("browser.display.background_color", "#F8FAF5");',
-        'user_pref("browser.display.foreground_color", "#123B30");',
+        'user_pref("browser.display.background_color", "#FFFFFF");',
+        'user_pref("browser.display.foreground_color", "#000000");',
         marker_end,
         "",
     ]
@@ -104,17 +98,13 @@ def profile_dirs(root: Path) -> list[Path]:
     return unique
 
 
-def write_xpi(profile: Path) -> None:
-    extensions = profile / "extensions"
-    extensions.mkdir(parents=True, exist_ok=True)
-    xpi_path = extensions / f"{addon_id}.xpi"
-    tmp_path = xpi_path.with_suffix(".xpi.tmp")
-    with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for path in sorted(theme_src.rglob("*")):
-            if not path.is_file():
-                continue
-            zf.write(path, path.relative_to(theme_src).as_posix())
-    tmp_path.replace(xpi_path)
+def marked_text(text: str, begin: str, end: str) -> str:
+    pattern = re.compile(
+        rf"{re.escape(begin)}\n.*?{re.escape(end)}",
+        re.DOTALL,
+    )
+    match = pattern.search(text)
+    return match.group(0) if match else ""
 
 
 def upsert_marked_file(path: Path, begin: str, end: str, block: str) -> None:
@@ -134,34 +124,156 @@ def upsert_marked_file(path: Path, begin: str, end: str, block: str) -> None:
     path.write_text(text)
 
 
-def upsert_user_js(profile: Path) -> None:
-    upsert_marked_file(profile / "user.js", marker_begin, marker_end, user_js_block)
-
-
-def upsert_message_body_styles(profile: Path) -> None:
-    source = theme_src / "content.css"
-    if not source.is_file():
+def strip_marked_file(path: Path, begin: str, end: str) -> None:
+    if not path.is_file():
         return
-    chrome = profile / "chrome"
-    chrome.mkdir(parents=True, exist_ok=True)
-    css = source.read_text().strip()
-    block = f"{css_marker_begin}\n{css}\n{css_marker_end}\n"
-    upsert_marked_file(
-        chrome / "userContent.css",
+    pattern = re.compile(
+        rf"{re.escape(begin)}\n.*?{re.escape(end)}\n?",
+        re.DOTALL,
+    )
+    text = pattern.sub("", path.read_text())
+    if text.strip():
+        path.write_text(text)
+    else:
+        path.unlink()
+
+
+def addon_id_from_user_js(profile: Path) -> str | None:
+    path = profile / "user.js"
+    if not path.is_file():
+        return None
+    region = marked_text(path.read_text(), marker_begin, marker_end)
+    match = active_theme_re.search(region)
+    if not match:
+        return None
+    addon_id = match.group(1)
+    if not addon_id or "/" in addon_id or addon_id in {".", ".."}:
+        return None
+    if addon_id == "default-theme@mozilla.org":
+        return None
+    return addon_id
+
+
+def delete_xpi(profile: Path, addon_id: str | None) -> None:
+    if not addon_id:
+        return
+    xpi = profile / "extensions" / f"{addon_id}.xpi"
+    xpi.unlink(missing_ok=True)
+
+
+def upsert_pref(text: str, key: str, value_js: str) -> str:
+    line = f'user_pref("{key}", {value_js});'
+    pattern = re.compile(rf'^user_pref\("{re.escape(key)}",\s*.*\);\s*$', re.M)
+    if pattern.search(text):
+        return pattern.sub(line, text, count=1)
+    if text and not text.endswith("\n"):
+        text += "\n"
+    return text + line + "\n"
+
+
+def reset_prefs_js(profile: Path) -> None:
+    path = profile / "prefs.js"
+    if not path.is_file():
+        return
+    text = path.read_text()
+    text = upsert_pref(text, "extensions.activeThemeID", '"default-theme@mozilla.org"')
+    text = upsert_pref(text, "extensions.autoDisableScopes", "15")
+    text = upsert_pref(text, "toolkit.legacyUserProfileCustomizations.stylesheets", "false")
+    text = upsert_pref(text, "browser.display.use_system_colors", "false")
+    text = upsert_pref(text, "browser.display.background_color", '"#FFFFFF"')
+    text = upsert_pref(text, "browser.display.foreground_color", '"#000000"')
+    path.write_text(text)
+
+
+def revert_profile(profile: Path) -> None:
+    delete_xpi(profile, addon_id_from_user_js(profile))
+    upsert_marked_file(profile / "user.js", marker_begin, marker_end, revert_user_js_block)
+    strip_marked_file(
+        profile / "chrome" / "userContent.css",
         css_marker_begin,
         css_marker_end,
-        block,
     )
+    reset_prefs_js(profile)
 
 
-installed = False
+def write_xpi(profile: Path, addon_id: str) -> None:
+    extensions = profile / "extensions"
+    extensions.mkdir(parents=True, exist_ok=True)
+    xpi_path = extensions / f"{addon_id}.xpi"
+    tmp_path = xpi_path.with_suffix(".xpi.tmp")
+    with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(theme_src.rglob("*")):
+            if not path.is_file():
+                continue
+            zf.write(path, path.relative_to(theme_src).as_posix())
+    tmp_path.replace(xpi_path)
+
+
+def apply_profile(profile: Path, addon_id: str, user_js_block: str) -> None:
+    previous_id = addon_id_from_user_js(profile)
+    if previous_id and previous_id != addon_id:
+        delete_xpi(profile, previous_id)
+    write_xpi(profile, addon_id)
+    upsert_marked_file(profile / "user.js", marker_begin, marker_end, user_js_block)
+    source = theme_src / "content.css"
+    if source.is_file():
+        chrome = profile / "chrome"
+        chrome.mkdir(parents=True, exist_ok=True)
+        css = source.read_text().strip()
+        block = f"{css_marker_begin}\n{css}\n{css_marker_end}\n"
+        upsert_marked_file(
+            chrome / "userContent.css",
+            css_marker_begin,
+            css_marker_end,
+            block,
+        )
+    else:
+        strip_marked_file(
+            profile / "chrome" / "userContent.css",
+            css_marker_begin,
+            css_marker_end,
+        )
+
+
+touched = False
+if not manifest_path.is_file():
+    for root in thunderbird_roots():
+        for profile in profile_dirs(root):
+            revert_profile(profile)
+            touched = True
+    raise SystemExit(0)
+
+theme_src = theme_src.resolve()
+manifest = json.loads(manifest_path.read_text())
+addon_id = (
+    manifest.get("browser_specific_settings", {})
+    .get("gecko", {})
+    .get("id")
+) or manifest.get("applications", {}).get("gecko", {}).get("id")
+if not addon_id or "/" in addon_id or addon_id in {".", ".."}:
+    raise SystemExit("Thunderbird theme manifest is missing a valid gecko id")
+
+user_js_block = "\n".join(
+    [
+        marker_begin,
+        f'user_pref("extensions.activeThemeID", {json.dumps(addon_id)});',
+        # Allow this profile-sideloaded theme to enable without a prompt.
+        # 14 = default 15 minus SCOPE_PROFILE (1).
+        'user_pref("extensions.autoDisableScopes", 14);',
+        'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);',
+        'user_pref("browser.display.use_system_colors", false);',
+        'user_pref("browser.display.background_color", "#F8FAF5");',
+        'user_pref("browser.display.foreground_color", "#123B30");',
+        marker_end,
+        "",
+    ]
+)
+
 for root in thunderbird_roots():
     for profile in profile_dirs(root):
-        write_xpi(profile)
-        upsert_user_js(profile)
-        upsert_message_body_styles(profile)
-        installed = True
+        apply_profile(profile, addon_id, user_js_block)
+        touched = True
 
-if not installed:
+if not touched:
     raise SystemExit(0)
 PY

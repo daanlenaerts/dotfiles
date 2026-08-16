@@ -1,0 +1,340 @@
+#!/bin/bash
+# Apply the current Omarchy palette to GTK 3/4 (libadwaita, including Nautilus).
+# Called by omarchy-hook after `omarchy theme set`. Missing colors.toml clears
+# the managed CSS block so Adwaita defaults return.
+
+set -euo pipefail
+
+THEME_NAME="${1:-}"
+CURRENT_THEME_DIR="$HOME/.local/state/omarchy/current/theme"
+COLORS_FILE="$CURRENT_THEME_DIR/colors.toml"
+
+if [[ -z $THEME_NAME && -f $HOME/.local/state/omarchy/current/theme.name ]]; then
+  THEME_NAME=$(<"$HOME/.local/state/omarchy/current/theme.name")
+fi
+
+if [[ ! -f $COLORS_FILE && -n $THEME_NAME ]]; then
+  COLORS_FILE="$HOME/.config/omarchy/themes/$THEME_NAME/colors.toml"
+fi
+
+GTK4_CSS="$HOME/.config/gtk-4.0/gtk.css"
+GTK3_CSS="$HOME/.config/gtk-3.0/gtk.css"
+
+if [[ ! -f $COLORS_FILE ]]; then
+  python3 - "$GTK4_CSS" "$GTK3_CSS" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+begin = "/* BEGIN omarchy-gtk-theme */"
+end = "/* END omarchy-gtk-theme */"
+pattern = re.compile(rf"{re.escape(begin)}\n.*?{re.escape(end)}\n?", re.DOTALL)
+
+for raw in sys.argv[1:]:
+    path = Path(raw)
+    if not path.is_file():
+        continue
+    text = pattern.sub("", path.read_text())
+    path.write_text(text)
+PY
+  exit 0
+fi
+
+python3 - "$GTK4_CSS" "$GTK3_CSS" "$COLORS_FILE" <<'PY'
+from __future__ import annotations
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+gtk4_path = Path(sys.argv[1]).expanduser()
+gtk3_path = Path(sys.argv[2]).expanduser()
+colors_file = Path(sys.argv[3]).expanduser()
+
+begin = "/* BEGIN omarchy-gtk-theme */"
+end = "/* END omarchy-gtk-theme */"
+pattern = re.compile(rf"{re.escape(begin)}\n.*?{re.escape(end)}\n?", re.DOTALL)
+hex_re = re.compile(r"^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$")
+
+
+def parse_palette() -> dict[str, str]:
+    raw = subprocess.check_output(
+        ["omarchy-theme-color", "--file", str(colors_file), "--all"],
+        text=True,
+    )
+    colors: dict[str, str] = {}
+    for line in raw.splitlines():
+        if "\t" not in line:
+            continue
+        key, value = line.split("\t", 1)
+        colors[key] = value
+    return colors
+
+
+def expand_hex(value: str) -> str | None:
+    if not hex_re.match(value):
+        return None
+    h = value[1:]
+    if len(h) == 3:
+        h = "".join(ch * 2 for ch in h)
+    return f"#{h[:6].lower()}"
+
+
+def lin(channel: float) -> float:
+    return channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
+
+
+def luminance(hex_color: str) -> float:
+    h = hex_color[1:]
+    r, g, b = (int(h[i : i + 2], 16) / 255 for i in (0, 2, 4))
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+
+def contrast_fg(bg: str) -> str:
+    lum = luminance(bg)
+    contrast_white = (1.05) / (lum + 0.05)
+    contrast_black = (lum + 0.05) / 0.05
+    return "#ffffff" if contrast_white >= contrast_black else "#111111"
+
+
+def require(colors: dict[str, str], key: str) -> str:
+    value = expand_hex(colors.get(key, ""))
+    if value is None:
+        raise SystemExit(f"omarchy gtk theme: missing hex color {key!r}")
+    return value
+
+
+def optional(colors: dict[str, str], key: str, fallback: str) -> str:
+    value = expand_hex(colors.get(key, ""))
+    return value or fallback
+
+
+def upsert(path: Path, block: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = path.read_text() if path.is_file() else ""
+    if pattern.search(text):
+        text = pattern.sub(block, text, count=1)
+    else:
+        if text and not text.endswith("\n"):
+            text += "\n"
+        if text:
+            text += "\n"
+        text += block
+    path.write_text(text)
+
+
+def define_block(pairs: list[tuple[str, str]]) -> str:
+    return "\n".join(f"@define-color {name} {value};" for name, value in pairs)
+
+
+def root_block(pairs: list[tuple[str, str]], mode: str) -> str:
+    lines = [":root {", f"  color-scheme: {mode};"]
+    for name, value in pairs:
+        lines.append(f"  --{name.replace('_', '-')}: {value};")
+    lines.append("}")
+    return "\n".join(lines)
+
+
+colors = parse_palette()
+mode = colors.get("mode", "dark")
+if mode not in {"light", "dark"}:
+    mode = "dark"
+
+background = require(colors, "background")
+foreground = require(colors, "foreground")
+accent = require(colors, "accent")
+muted = optional(colors, "muted", background)
+lighter = optional(colors, "lighter_background", background)
+dark_bg = optional(colors, "dark_background", background)
+red = optional(colors, "red", "#c01c28")
+green = optional(colors, "green", "#2ec27e")
+yellow = optional(colors, "yellow", "#e5a50a")
+orange = optional(colors, "orange", yellow)
+
+view_bg = lighter if lighter != background else background
+sidebar_bg = muted if mode == "light" else dark_bg
+headerbar_bg = background
+card_bg = lighter
+popover_bg = lighter if mode == "light" else dark_bg
+dialog_bg = lighter if mode == "light" else dark_bg
+thumbnail_bg = lighter
+
+accent_fg = contrast_fg(accent)
+window_fg = foreground
+view_fg = foreground
+sidebar_fg = foreground
+headerbar_fg = foreground
+destructive_fg = contrast_fg(red)
+success_fg = contrast_fg(green)
+warning_fg = contrast_fg(yellow)
+error_fg = contrast_fg(red)
+
+if mode == "light":
+    shade = "rgba(0, 0, 0, 0.07)"
+    headerbar_shade = "rgba(0, 0, 0, 0.12)"
+    scrollbar_outline = "rgba(255, 255, 255, 0.5)"
+    border = "rgba(0, 0, 0, 0.15)"
+else:
+    shade = "rgba(0, 0, 0, 0.36)"
+    headerbar_shade = "rgba(0, 0, 0, 0.36)"
+    scrollbar_outline = "rgba(0, 0, 0, 0.5)"
+    border = "rgba(255, 255, 255, 0.15)"
+
+named = [
+    ("accent_color", accent),
+    ("accent_bg_color", accent),
+    ("accent_fg_color", accent_fg),
+    ("destructive_color", red),
+    ("destructive_bg_color", red),
+    ("destructive_fg_color", destructive_fg),
+    ("success_color", green),
+    ("success_bg_color", green),
+    ("success_fg_color", success_fg),
+    ("warning_color", orange),
+    ("warning_bg_color", yellow),
+    ("warning_fg_color", warning_fg),
+    ("error_color", red),
+    ("error_bg_color", red),
+    ("error_fg_color", error_fg),
+    ("window_bg_color", background),
+    ("window_fg_color", window_fg),
+    ("view_bg_color", view_bg),
+    ("view_fg_color", view_fg),
+    ("headerbar_bg_color", headerbar_bg),
+    ("headerbar_fg_color", headerbar_fg),
+    ("headerbar_border_color", border),
+    ("headerbar_backdrop_color", background),
+    ("headerbar_shade_color", headerbar_shade),
+    ("card_bg_color", card_bg),
+    ("card_fg_color", window_fg),
+    ("card_shade_color", shade),
+    ("dialog_bg_color", dialog_bg),
+    ("dialog_fg_color", window_fg),
+    ("popover_bg_color", popover_bg),
+    ("popover_fg_color", window_fg),
+    ("popover_shade_color", shade),
+    ("shade_color", shade),
+    ("scrollbar_outline_color", scrollbar_outline),
+    ("sidebar_bg_color", sidebar_bg),
+    ("sidebar_fg_color", sidebar_fg),
+    ("sidebar_backdrop_color", sidebar_bg),
+    ("sidebar_border_color", border),
+    ("sidebar_shade_color", shade),
+    ("secondary_sidebar_bg_color", sidebar_bg),
+    ("secondary_sidebar_fg_color", sidebar_fg),
+    ("secondary_sidebar_backdrop_color", sidebar_bg),
+    ("secondary_sidebar_border_color", border),
+    ("secondary_sidebar_shade_color", shade),
+    ("thumbnail_bg_color", thumbnail_bg),
+    ("thumbnail_fg_color", window_fg),
+    ("osd_bg_color", dark_bg if mode == "light" else lighter),
+    ("osd_fg_color", contrast_fg(dark_bg if mode == "light" else lighter)),
+    ("border_color", border),
+]
+
+gtk3_aliases = [
+    ("theme_bg_color", background),
+    ("theme_fg_color", window_fg),
+    ("theme_base_color", view_bg),
+    ("theme_text_color", view_fg),
+    ("theme_selected_bg_color", accent),
+    ("theme_selected_fg_color", accent_fg),
+    ("theme_unfocused_bg_color", background),
+    ("theme_unfocused_fg_color", window_fg),
+    ("theme_unfocused_base_color", view_bg),
+    ("theme_unfocused_text_color", view_fg),
+    ("theme_unfocused_selected_bg_color", accent),
+    ("theme_unfocused_selected_fg_color", accent_fg),
+    ("insensitive_bg_color", sidebar_bg),
+    ("insensitive_fg_color", muted if mode == "dark" else optional(colors, "light_foreground", window_fg)),
+    ("insensitive_base_color", view_bg),
+]
+
+defines = define_block(named)
+gtk3_defines = define_block(named + gtk3_aliases)
+roots = root_block(named, mode)
+
+# Adwaita 3 bakes the notebook tab underline as a literal blue (#4a90d9 /
+# #3584e4). Redefining accent_color is not enough; override the tab rule.
+# LibreOffice's tabbed UI draws tabs as GTK notebook tabs. Keep the active
+# tab on the chrome background with an accent underline — do not fill it.
+gtk3_tabs = f"""
+notebook header tabs tab,
+notebook > header > tabs > tab {{
+  color: {window_fg};
+  background-color: transparent;
+}}
+notebook header.top tabs tab:checked,
+notebook header.top tabs tab:checked:hover,
+notebook > header.top > tabs > tab:checked,
+notebook > header.top > tabs > tab:checked:hover {{
+  color: {window_fg};
+  background-color: {headerbar_bg};
+  box-shadow: inset 0 -3px {accent};
+}}
+notebook header.bottom tabs tab:checked,
+notebook header.bottom tabs tab:checked:hover,
+notebook > header.bottom > tabs > tab:checked,
+notebook > header.bottom > tabs > tab:checked:hover {{
+  color: {window_fg};
+  background-color: {headerbar_bg};
+  box-shadow: inset 0 3px {accent};
+}}
+"""
+gtk4_tabs = gtk3_tabs
+
+# Adwaita often keeps theme_fg_color on selected rows after selected_bg is
+# retinted, which makes LibreOffice Options trees unreadable (ink on moss).
+# Do not use *:selected — that fills notebook tabs and makes GTK report white
+# as HighlightTextColor, which Calc paints on sage row/column headers.
+gtk3_selection = f"""
+treeview.view:selected,
+treeview.view:selected:focus,
+treeview.view:selected:backdrop,
+row:selected,
+row:selected cell,
+row:selected label,
+list row:selected,
+list row:selected label,
+textview text:selected,
+entry selection {{
+  color: {accent_fg};
+  background-color: {accent};
+}}
+"""
+gtk4_selection = f"""
+treeview.view:selected,
+row:selected,
+row:selected cell,
+list row:selected,
+listview row:selected,
+columnview row:selected,
+textview text:selected,
+entry selection {{
+  color: {accent_fg};
+  background-color: {accent};
+}}
+"""
+
+gtk4_block = (
+    f"{begin}\n"
+    "/* Generated from Omarchy colors.toml for libadwaita / Nautilus. */\n"
+    f"{defines}\n\n"
+    f"{roots}\n"
+    f"{gtk4_tabs}"
+    f"{gtk4_selection}"
+    f"{end}\n"
+)
+gtk3_block = (
+    f"{begin}\n"
+    "/* Generated from Omarchy colors.toml for GTK 3. */\n"
+    f"{gtk3_defines}\n"
+    f"{gtk3_tabs}"
+    f"{gtk3_selection}"
+    f"{end}\n"
+)
+
+upsert(gtk4_path, gtk4_block)
+upsert(gtk3_path, gtk3_block)
+PY

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Apply a theme's Codex desktop appearance (codex-theme-v1) to ~/.codex/config.toml.
-# Called by omarchy-hook after `omarchy theme set`. Missing theme files are a no-op.
+# Called by omarchy-hook after `omarchy theme set`. Missing theme files remove
+# the managed chrome theme so Codex defaults return.
 
 set -euo pipefail
 
@@ -15,10 +16,6 @@ fi
 THEME_FILE="$CURRENT_THEME_FILE"
 if [[ ! -f $THEME_FILE && -n $THEME_NAME ]]; then
   THEME_FILE="$HOME/.config/omarchy/themes/$THEME_NAME/codex-theme-v1"
-fi
-
-if [[ ! -f $THEME_FILE ]]; then
-  exit 0
 fi
 
 if [[ ! -d $HOME/.codex ]]; then
@@ -138,13 +135,17 @@ def upsert_desktop_keys(source: str, specs: dict[str, dict]) -> str:
     return source[: match.start("body")] + body + source[match.end("body") :]
 
 
-def upsert_theme_block(source: str, variant: str, block: str) -> str:
+def chrome_table_pattern(variant: str) -> re.Pattern[str]:
     title = variant.title()
     table = f"desktop.appearance{title}ChromeTheme"
-    pattern = re.compile(
+    return re.compile(
         rf"(?ms)^\[{re.escape(table)}\]\n.*?"
         rf"(?=^\[(?!{re.escape(table)}(?:\.|\]))|\Z)"
     )
+
+
+def upsert_theme_block(source: str, variant: str, block: str) -> str:
+    pattern = chrome_table_pattern(variant)
     replacement = block.rstrip("\n") + "\n\n"
     if pattern.search(source):
         return pattern.sub(replacement, source, count=1)
@@ -153,6 +154,67 @@ def upsert_theme_block(source: str, variant: str, block: str) -> str:
     return source + "\n" + replacement
 
 
+def remove_theme_block(source: str, variant: str) -> str:
+    return chrome_table_pattern(variant).sub("", source, count=1)
+
+
+def remove_desktop_key(source: str, key: str) -> str:
+    desktop_pattern = re.compile(r"(?ms)^\[desktop\]\n(?P<body>.*?)(?=^\[|\Z)")
+    match = desktop_pattern.search(source)
+    if not match:
+        return source
+    body = re.sub(rf"(?m)^{re.escape(key)}\s*=.*\n?", "", match.group("body"))
+    return source[: match.start("body")] + body + source[match.end("body") :]
+
+
+def collapse_blank_lines(source: str) -> str:
+    return re.sub(r"\n{3,}", "\n\n", source).rstrip() + ("\n" if source else "")
+
+
+def revert_managed(source: str) -> str:
+    for variant in ["light", "dark"]:
+        source = remove_theme_block(source, variant)
+        source = remove_desktop_key(source, f"appearance{variant.title()}CodeThemeId")
+    return collapse_blank_lines(source)
+
+
+state_path = Path.home() / ".local/state/omarchy/theme-hooks/codex.json"
+
+
+def write_config(text: str) -> None:
+    if tomllib is not None:
+        tomllib.loads(text)
+    config_path.write_text(text)
+
+
+def save_applied_state(specs: dict[str, dict]) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps({"variants": sorted(specs)}, indent=2) + "\n")
+
+
+def clear_applied_state() -> None:
+    state_path.unlink(missing_ok=True)
+
+
+def legacy_managed(text: str) -> bool:
+    # Previous hook versions wrote Daan Forest chrome with no state file.
+    return (
+        "[desktop.appearanceLightChromeTheme]" in text
+        and 'ink = "#123b30"' in text
+        and 'surface = "#f1f3ea"' in text
+    )
+
+
+if not theme_path.is_file():
+    if not config_path.is_file():
+        raise SystemExit(0)
+    text = config_path.read_text()
+    if not state_path.is_file() and not legacy_managed(text):
+        raise SystemExit(0)
+    write_config(revert_managed(text))
+    clear_applied_state()
+    raise SystemExit(0)
+
 specs = parse_theme(theme_path.read_text())
 config_path.parent.mkdir(parents=True, exist_ok=True)
 text = config_path.read_text() if config_path.exists() else ""
@@ -160,9 +222,10 @@ text = upsert_desktop_keys(text, specs)
 for variant in ["light", "dark"]:
     if variant in specs:
         text = upsert_theme_block(text, variant, render_theme_block(variant, specs[variant]))
+    else:
+        text = remove_theme_block(text, variant)
+        text = remove_desktop_key(text, f"appearance{variant.title()}CodeThemeId")
 
-if tomllib is not None:
-    tomllib.loads(text)
-
-config_path.write_text(text)
+write_config(collapse_blank_lines(text))
+save_applied_state(specs)
 PY

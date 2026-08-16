@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Daan Forest palette, grouped for Calc: fills, headers, semantics, text, charts. -->
+<ooo:color-table xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                 xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"
+                 xmlns:xlink="http://www.w3.org/1999/xlink"
+                 xmlns:svg="http://www.w3.org/2000/svg"
+                 xmlns:ooo="http://openoffice.org/2004/office">
+
+  <!-- Surfaces — sheet fills that keep ink readable -->
+  <draw:color draw:name="Canvas" draw:color="#f8faf5"/>
+  <draw:color draw:name="Paper" draw:color="#f1f3ea"/>
+  <draw:color draw:name="Chrome" draw:color="#eef2e8"/>
+  <draw:color draw:name="Sage Wash" draw:color="#e5e9d8"/>
+  <draw:color draw:name="Moss Wash" draw:color="#dde7d8"/>
+  <draw:color draw:name="Border" draw:color="#d9e1d3"/>
+  <draw:color draw:name="Stone" draw:color="#b5b6b0"/>
+  <draw:color draw:name="Bark Wash" draw:color="#e8dfd2"/>
+  <draw:color draw:name="Amber Wash" draw:color="#f3e6cc"/>
+  <draw:color draw:name="Teal Wash" draw:color="#d7e6e2"/>
+  <draw:color draw:name="Rust Wash" draw:color="#f4d6cf"/>
+  <draw:color draw:name="White" draw:color="#ffffff"/>
+
+  <!-- Headers — table titles and freeze-pane rows -->
+  <draw:color draw:name="Header Dark" draw:color="#123b30"/>
+  <draw:color draw:name="Header" draw:color="#5b7146"/>
+  <draw:color draw:name="Header Moss" draw:color="#4a6138"/>
+  <draw:color draw:name="Header Teal" draw:color="#3f756b"/>
+  <draw:color draw:name="Header Light" draw:color="#dde7d8"/>
+  <draw:color draw:name="Header Sage" draw:color="#e5e9d8"/>
+  <draw:color draw:name="Band A" draw:color="#f8faf5"/>
+  <draw:color draw:name="Band B" draw:color="#eef2e8"/>
+  <draw:color draw:name="Band Strong" draw:color="#e5e9d8"/>
+  <draw:color draw:name="Selection" draw:color="#c9dac0"/>
+  <draw:color draw:name="Total Bar" draw:color="#123b30"/>
+  <draw:color draw:name="Subtotal Bar" draw:color="#36584f"/>
+
+  <!-- Semantic — input vs calculated, KPI, conditional formatting -->
+  <draw:color draw:name="Input" draw:color="#f3e6cc"/>
+  <draw:color draw:name="Calculated" draw:color="#e5e9d8"/>
+  <draw:color draw:name="Positive" draw:color="#4a6138"/>
+  <draw:color draw:name="Positive Fill" draw:color="#d5e2cd"/>
+  <draw:color draw:name="Negative" draw:color="#c72e0f"/>
+  <draw:color draw:name="Negative Fill" draw:color="#f4d6cf"/>
+  <draw:color draw:name="Warning" draw:color="#895503"/>
+  <draw:color draw:name="Warning Fill" draw:color="#f3e6cc"/>
+  <draw:color draw:name="Info" draw:color="#3f756b"/>
+  <draw:color draw:name="Info Fill" draw:color="#d7e6e2"/>
+  <draw:color draw:name="Locked" draw:color="#eef2e8"/>
+  <draw:color draw:name="Note" draw:color="#e5e9d8"/>
+
+  <!-- Text — font colors that hold up on light fills -->
+  <draw:color draw:name="Ink" draw:color="#123b30"/>
+  <draw:color draw:name="Ink Dark" draw:color="#0e2c24"/>
+  <draw:color draw:name="Ink Light" draw:color="#36584f"/>
+  <draw:color draw:name="Muted Text" draw:color="#797a75"/>
+  <draw:color draw:name="Accent" draw:color="#5b7146"/>
+  <draw:color draw:name="Teal" draw:color="#3f756b"/>
+  <draw:color draw:name="Bark" draw:color="#7a5c36"/>
+  <draw:color draw:name="Amber" draw:color="#895503"/>
+  <draw:color draw:name="Purple" draw:color="#77607d"/>
+  <draw:color draw:name="Rust" draw:color="#c72e0f"/>
+  <draw:color draw:name="On Header" draw:color="#f8faf5"/>
+  <draw:color draw:name="Link" draw:color="#3f756b"/>
+
+  <!-- Chart series — 12 distinguishable forest tones -->
+  <draw:color draw:name="Chart 1 Forest" draw:color="#5b7146"/>
+  <draw:color draw:name="Chart 2 Teal" draw:color="#3f756b"/>
+  <draw:color draw:name="Chart 3 Bark" draw:color="#7a5c36"/>
+  <draw:color draw:name="Chart 4 Amber" draw:color="#895503"/>
+  <draw:color draw:name="Chart 5 Olive" draw:color="#597244"/>
+  <draw:color draw:name="Chart 6 Purple" draw:color="#77607d"/>
+  <draw:color draw:name="Chart 7 Deep Moss" draw:color="#4a6138"/>
+  <draw:color draw:name="Chart 8 Rust" draw:color="#c72e0f"/>
+  <draw:color draw:name="Chart 9 Pine" draw:color="#36584f"/>
+  <draw:color draw:name="Chart 10 Fern" draw:color="#75955d"/>
+  <draw:color draw:name="Chart 11 Khaki" draw:color="#7b8158"/>
+  <draw:color draw:name="Chart 12 Leaf" draw:color="#556f46"/>
+</ooo:color-table>

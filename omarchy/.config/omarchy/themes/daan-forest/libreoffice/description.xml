@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="http://openoffice.org/extensions/description/2006"
+             xmlns:lo="http://libreoffice.org/extensions/description/2011"
+             xmlns:xlink="http://www.w3.org/1999/xlink">
+  <identifier value="com.daanlenaerts.daan-forest.libreoffice"/>
+  <version value="1.0.0"/>
+  <display-name>
+    <name lang="en-US">Daan Forest</name>
+  </display-name>
+  <publisher>
+    <name xlink:href="https://daanlenaerts.com">Daan Lenaerts</name>
+  </publisher>
+  <icon>
+    <default xlink:href="icon.svg"/>
+  </icon>
+  <extension-description>
+    <src xlink:href="pkg-desc/pkg-description.txt" lang="en-US"/>
+  </extension-description>
+  <dependencies>
+    <lo:LibreOffice-minimal-version value="25.2" lo:name="LibreOffice 25.2"/>
+  </dependencies>
+</description>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Default chart series for Daan Forest. Pick this palette in chart wizard / area fill. -->
+<office:color-table xmlns:office="http://openoffice.org/2000/office"
+                    xmlns:draw="http://openoffice.org/2000/drawing"
+                    xmlns:xlink="http://www.w3.org/1999/xlink"
+                    xmlns:svg="http://www.w3.org/2000/svg">
+  <draw:color draw:name="Chart 1" draw:color="#5b7146"/>
+  <draw:color draw:name="Chart 2" draw:color="#3f756b"/>
+  <draw:color draw:name="Chart 3" draw:color="#7a5c36"/>
+  <draw:color draw:name="Chart 4" draw:color="#895503"/>
+  <draw:color draw:name="Chart 5" draw:color="#597244"/>
+  <draw:color draw:name="Chart 6" draw:color="#77607d"/>
+  <draw:color draw:name="Chart 7" draw:color="#4a6138"/>
+  <draw:color draw:name="Chart 8" draw:color="#c72e0f"/>
+  <draw:color draw:name="Chart 9" draw:color="#36584f"/>
+  <draw:color draw:name="Chart 10" draw:color="#75955d"/>
+  <draw:color draw:name="Chart 11" draw:color="#7b8158"/>
+  <draw:color draw:name="Chart 12" draw:color="#556f46"/>
+</office:color-table>

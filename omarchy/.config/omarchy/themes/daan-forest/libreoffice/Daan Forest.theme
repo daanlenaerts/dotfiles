@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<theme name="Daan Forest">
+    <theme-colors name="Daan Forest">
+        <color name="dark1" color="#123b30" />
+        <color name="light1" color="#f8faf5" />
+        <color name="dark2" color="#0e2c24" />
+        <color name="light2" color="#eef2e8" />
+        <color name="accent1" color="#5b7146" />
+        <color name="accent2" color="#3f756b" />
+        <color name="accent3" color="#7a5c36" />
+        <color name="accent4" color="#597244" />
+        <color name="accent5" color="#895503" />
+        <color name="accent6" color="#556f46" />
+        <color name="hyperlink" color="#3f756b" />
+        <color name="followed-hyperlink" color="#77607d" />
+    </theme-colors>
+</theme>

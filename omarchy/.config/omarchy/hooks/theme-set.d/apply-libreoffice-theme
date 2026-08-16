@@ -1,0 +1,408 @@
+#!/bin/bash
+# Apply a theme's LibreOffice appearance (libreoffice/Theme.xcu).
+# Called by omarchy-hook after `omarchy theme set`. Missing theme files revert
+# the managed color scheme, palettes, and Calc tweaks.
+
+set -euo pipefail
+
+THEME_NAME="${1:-}"
+CURRENT_THEME_DIR="$HOME/.local/state/omarchy/current/theme"
+THEME_SRC="$CURRENT_THEME_DIR/libreoffice"
+
+if [[ -z $THEME_NAME && -f $HOME/.local/state/omarchy/current/theme.name ]]; then
+  THEME_NAME=$(<"$HOME/.local/state/omarchy/current/theme.name")
+fi
+
+if [[ ! -f $THEME_SRC/Theme.xcu && -n $THEME_NAME ]]; then
+  THEME_SRC="$HOME/.config/omarchy/themes/$THEME_NAME/libreoffice"
+fi
+
+python3 - "$THEME_SRC" <<'PY'
+from __future__ import annotations
+
+import json
+import re
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+theme_src = Path(sys.argv[1]).expanduser()
+grid_line_color = 0xD9E1D3  # #d9e1d3, matches CalcGrid
+state_path = Path.home() / ".local/state/omarchy/theme-hooks/libreoffice.json"
+fallback_state = {
+    "scheme_name": "Daan Forest",
+    "palettes": ["daan-forest.soc", "daan-forest-chart.soc"],
+    "document_themes": ["Daan Forest.theme"],
+}
+
+OOR = "http://openoffice.org/2001/registry"
+XS = "http://www.w3.org/2001/XMLSchema"
+XSI = "http://www.w3.org/2001/XMLSchema-instance"
+NS = {"oor": OOR, "xs": XS, "xsi": XSI}
+
+for prefix, uri in NS.items():
+    ET.register_namespace(prefix, uri)
+
+
+def libreoffice_roots() -> list[Path]:
+    roots: list[Path] = []
+    candidates = [
+        Path.home() / ".config/libreoffice",
+        Path.home() / ".var/app/org.libreoffice.LibreOffice/config/libreoffice",
+    ]
+    for base in candidates:
+        if not base.is_dir():
+            continue
+        roots.extend(sorted(base.glob("*/user")))
+    return [root for root in roots if root.is_dir()]
+
+
+def load_state() -> dict:
+    if not state_path.is_file():
+        return dict(fallback_state)
+    try:
+        data = json.loads(state_path.read_text())
+    except json.JSONDecodeError:
+        return dict(fallback_state)
+    merged = dict(fallback_state)
+    merged.update({key: data[key] for key in fallback_state if key in data})
+    return merged
+
+
+def save_state(data: dict) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def clear_state() -> None:
+    state_path.unlink(missing_ok=True)
+
+
+def scheme_name_from_theme() -> str:
+    tree = ET.parse(theme_src / "Theme.xcu")
+    name_attr = f"{{{OOR}}}name"
+    for el in tree.getroot().iter("node"):
+        if el.get(name_attr) != "ColorSchemes":
+            continue
+        for child in list(el):
+            name = child.get(name_attr)
+            if name:
+                return name
+    raise SystemExit(f"{theme_src}/Theme.xcu is missing a color scheme")
+
+
+def copy_named_files(user_dir: Path, relative: str, names: list[str]) -> None:
+    dest = user_dir / relative
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        source = theme_src / name
+        if source.is_file():
+            (dest / name).write_bytes(source.read_bytes())
+
+
+def delete_named_files(user_dir: Path, relative: str, names: list[str]) -> None:
+    dest = user_dir / relative
+    for name in names:
+        (dest / name).unlink(missing_ok=True)
+
+
+def scheme_node(scheme_name: str) -> ET.Element:
+    tree = ET.parse(theme_src / "Theme.xcu")
+    name_attr = f"{{{OOR}}}name"
+    for el in tree.getroot().iter("node"):
+        if el.get(name_attr) == scheme_name:
+            return el
+    raise SystemExit(f"{theme_src}/Theme.xcu is missing scheme {scheme_name!r}")
+
+
+def scheme_item_xml(scheme_name: str) -> str:
+    node = scheme_node(scheme_name)
+    inner = []
+    for child in list(node):
+        inner.append(ET.tostring(child, encoding="unicode"))
+    body = "".join(inner)
+    body = body.replace(' xmlns:oor="http://openoffice.org/2001/registry"', "")
+    body = re.sub(
+        r"<prop oor:name=\"([^\"]+)\">",
+        r'<prop oor:name="\1" oor:op="fuse">',
+        body,
+    )
+    return (
+        f'<item oor:path="/org.openoffice.Office.UI/ColorScheme/ColorSchemes">'
+        f'<node oor:name="{scheme_name}" oor:op="replace">{body}</node></item>\n'
+    )
+
+
+def item(path: str, prop: str, value: str, nillable: bool = False) -> str:
+    inner = f'<value xsi:nil="true"/>' if nillable else f"<value>{value}</value>"
+    return (
+        f'<item oor:path="{path}">'
+        f'<prop oor:name="{prop}" oor:op="fuse">{inner}</prop>'
+        f"</item>\n"
+    )
+
+
+def strip_managed(text: str, scheme_name: str) -> str:
+    patterns = [
+        rf"<item oor:path=\"/org\.openoffice\.Office\.UI/ColorScheme/ColorSchemes\">"
+        rf"<node oor:name=\"{re.escape(scheme_name)}\"[^>]*>.*?</node></item>\n?",
+        rf"<item oor:path=\"/org\.openoffice\.Office\.UI/ColorScheme/ColorSchemes/"
+        rf"org\.openoffice\.Office\.UI:ColorScheme\['{re.escape(scheme_name)}'\].*?</item>\n?",
+    ]
+    for pattern in patterns:
+        text = re.sub(pattern, "", text, flags=re.DOTALL)
+    return text
+
+
+def upsert_simple(text: str, path: str, prop: str, value: str) -> str:
+    pattern = re.compile(
+        rf'<item oor:path="{re.escape(path)}">'
+        rf'<prop oor:name="{re.escape(prop)}" oor:op="fuse">'
+        rf"<value>.*?</value></prop></item>\n?"
+    )
+    replacement = item(path, prop, value)
+    if pattern.search(text):
+        return pattern.sub(replacement, text, count=1)
+    return text
+
+
+def delete_simple(text: str, path: str, prop: str) -> str:
+    pattern = re.compile(
+        rf'<item oor:path="{re.escape(path)}">'
+        rf'<prop oor:name="{re.escape(prop)}" oor:op="fuse">'
+        rf"<value>.*?</value></prop></item>\n?"
+    )
+    return pattern.sub("", text)
+
+
+def insert_before_close(text: str, block: str) -> str:
+    close = "</oor:items>"
+    idx = text.rfind(close)
+    if idx == -1:
+        raise SystemExit("registrymodifications.xcu is missing </oor:items>")
+    if not text[:idx].endswith("\n"):
+        block = "\n" + block
+    return text[:idx] + block + text[idx:]
+
+
+def insert_missing(text: str, extras: list[str]) -> str:
+    missing = []
+    for extra in extras:
+        path_match = re.search(r'oor:path="([^"]+)"', extra)
+        prop_match = re.search(r'oor:name="([^"]+)" oor:op="fuse"', extra)
+        node_match = re.search(r'<node oor:name="([^"]+)" oor:op="replace"', extra)
+        if node_match and path_match:
+            needle = f'oor:path="{path_match.group(1)}"><node oor:name="{node_match.group(1)}"'
+        elif path_match and prop_match:
+            needle = (
+                f'oor:path="{path_match.group(1)}">'
+                f'<prop oor:name="{prop_match.group(1)}"'
+            )
+        else:
+            needle = extra.strip()
+        if needle not in text:
+            missing.append(extra)
+    if missing:
+        text = insert_before_close(text, "".join(missing))
+    return text
+
+
+def looks_applied(user_dir: Path, state: dict) -> bool:
+    for name in state.get("palettes") or []:
+        if (user_dir / "config" / name).is_file():
+            return True
+    for name in state.get("document_themes") or []:
+        if (user_dir / "themes" / name).is_file():
+            return True
+    registry = user_dir / "registrymodifications.xcu"
+    scheme_name = state.get("scheme_name") or ""
+    if registry.is_file() and scheme_name:
+        needle = f'oor:name="{scheme_name}"'
+        if needle in registry.read_text():
+            return True
+    return False
+
+
+def apply_registry(
+    user_dir: Path, scheme_name: str, previous_scheme: str | None
+) -> None:
+    registry = user_dir / "registrymodifications.xcu"
+    if not registry.is_file():
+        return
+
+    text = registry.read_text()
+    text = strip_managed(text, scheme_name)
+    if previous_scheme and previous_scheme != scheme_name:
+        text = strip_managed(text, previous_scheme)
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.UI/ColorScheme",
+        "CurrentColorScheme",
+        scheme_name,
+    )
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Common/Appearance",
+        "ApplicationAppearance",
+        "1",
+    )
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Common/Appearance",
+        "LibreOfficeTheme",
+        "1",
+    )
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Common/UserColors",
+        "PaletteName",
+        scheme_name,
+    )
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Calc/Content/Display",
+        "ValueHighlighting",
+        "false",
+    )
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Calc/Content/Display",
+        "ColumnRowHighlighting",
+        "true",
+    )
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Calc/Content/Display",
+        "EditCellBackgroundHighlighting",
+        "true",
+    )
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Calc/Layout/Line",
+        "GridLineColor",
+        str(grid_line_color),
+    )
+
+    extras = [
+        scheme_item_xml(scheme_name),
+        item("/org.openoffice.Office.UI/ColorScheme", "CurrentColorScheme", scheme_name),
+        item("/org.openoffice.Office.Common/Appearance", "ApplicationAppearance", "1"),
+        item("/org.openoffice.Office.Common/Appearance", "LibreOfficeTheme", "1"),
+        item("/org.openoffice.Office.Common/UserColors", "PaletteName", scheme_name),
+        item("/org.openoffice.Office.Calc/Content/Display", "ValueHighlighting", "false"),
+        item("/org.openoffice.Office.Calc/Content/Display", "ColumnRowHighlighting", "true"),
+        item(
+            "/org.openoffice.Office.Calc/Content/Display",
+            "EditCellBackgroundHighlighting",
+            "true",
+        ),
+        item("/org.openoffice.Office.Calc/Layout/Line", "GridLineColor", str(grid_line_color)),
+    ]
+    text = insert_missing(text, extras)
+    registry.write_text(text)
+
+
+def revert_registry(user_dir: Path, scheme_name: str) -> None:
+    registry = user_dir / "registrymodifications.xcu"
+    if not registry.is_file():
+        return
+
+    text = registry.read_text()
+    text = strip_managed(text, scheme_name)
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.UI/ColorScheme",
+        "CurrentColorScheme",
+        "LibreOffice",
+    )
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Common/Appearance",
+        "ApplicationAppearance",
+        "0",
+    )
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Common/Appearance",
+        "LibreOfficeTheme",
+        "0",
+    )
+    text = delete_simple(
+        text,
+        "/org.openoffice.Office.Common/UserColors",
+        "PaletteName",
+    )
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Calc/Content/Display",
+        "ValueHighlighting",
+        "true",
+    )
+    text = delete_simple(
+        text,
+        "/org.openoffice.Office.Calc/Layout/Line",
+        "GridLineColor",
+    )
+    text = insert_missing(
+        text,
+        [
+            item(
+                "/org.openoffice.Office.UI/ColorScheme",
+                "CurrentColorScheme",
+                "LibreOffice",
+            ),
+            item("/org.openoffice.Office.Common/Appearance", "ApplicationAppearance", "0"),
+            item("/org.openoffice.Office.Common/Appearance", "LibreOfficeTheme", "0"),
+            item("/org.openoffice.Office.Calc/Content/Display", "ValueHighlighting", "true"),
+        ],
+    )
+    registry.write_text(text)
+
+
+if not (theme_src / "Theme.xcu").is_file():
+    had_state = state_path.is_file()
+    state = load_state()
+    for user_dir in libreoffice_roots():
+        if not had_state and not looks_applied(user_dir, state):
+            continue
+        delete_named_files(user_dir, "config", state["palettes"])
+        delete_named_files(user_dir, "themes", state["document_themes"])
+        revert_registry(user_dir, state["scheme_name"])
+    clear_state()
+    raise SystemExit(0)
+
+theme_src = theme_src.resolve()
+scheme_name = scheme_name_from_theme()
+previous = load_state() if state_path.is_file() else None
+state = {
+    "scheme_name": scheme_name,
+    "palettes": [path.name for path in sorted(theme_src.glob("*.soc"))],
+    "document_themes": [path.name for path in sorted(theme_src.glob("*.theme"))],
+}
+save_state(state)
+
+applied = False
+for user_dir in libreoffice_roots():
+    if previous:
+        stale_palettes = [
+            name for name in previous["palettes"] if name not in state["palettes"]
+        ]
+        stale_themes = [
+            name
+            for name in previous["document_themes"]
+            if name not in state["document_themes"]
+        ]
+        delete_named_files(user_dir, "config", stale_palettes)
+        delete_named_files(user_dir, "themes", stale_themes)
+    copy_named_files(user_dir, "config", state["palettes"])
+    copy_named_files(user_dir, "themes", state["document_themes"])
+    apply_registry(
+        user_dir,
+        scheme_name,
+        previous["scheme_name"] if previous else None,
+    )
+    applied = True
+
+if not applied:
+    raise SystemExit(0)
+PY
