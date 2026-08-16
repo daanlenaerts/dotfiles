@@ -1,0 +1,14 @@
+/* Default message/compose canvas. HTML emails that set their own
+   background still keep it unless they rely on the browser default white. */
+html,
+body {
+  background-color: #f8faf5 !important;
+}
+
+body.moz-text-plain,
+body.moz-text-flowed,
+div.moz-text-plain,
+div.moz-text-flowed {
+  background-color: #f8faf5 !important;
+  color: #123b30 !important;
+}

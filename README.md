@@ -59,3 +59,19 @@ codex-theme-v1:{"codeThemeId":"codex","theme":{"accent":"#5b7146","contrast":45,
 `codeThemeId` must stay a built-in Codex id (`codex`, `github-light`, `one`,
 …) or the in-app importer will refuse the payload. Chrome colors still come
 from the JSON `theme` object.
+
+## Thunderbird theme (daan-forest)
+
+daan-forest includes a Thunderbird WebExtension theme at
+`omarchy/.config/omarchy/themes/daan-forest/thunderbird/`.
+
+**Auto-apply:** `stow -t ~ omarchy` installs a `theme-set` hook. After that,
+`omarchy theme set daan-forest` sideloads the theme into each Thunderbird
+profile, selects it via `user.js`, and tints the default message-body canvas
+(`userContent.css` plus `browser.display.background_color`). Restart
+Thunderbird so it reloads the add-on and stylesheets. Themes without a
+`thunderbird/manifest.json` are left unchanged.
+
+**Manual install:** Thunderbird Add-ons Manager → gear → Install Add-on From
+File, then choose a packed `daan-forest@themes.daanlenaerts.com.xpi` (the hook
+writes that file into each profile's `extensions/` directory).

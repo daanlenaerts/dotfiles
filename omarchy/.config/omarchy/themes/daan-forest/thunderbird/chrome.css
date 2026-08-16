@@ -1,0 +1,115 @@
+/* Message pane chrome around the email body. */
+.message-header-container,
+#messageHeader,
+#messagePane,
+#messageBrowser,
+#messagepane,
+#messagepanebox {
+  background-color: var(--layout-background-0, #f8faf5) !important;
+}
+
+/* Selected Day/Week/Month pill: cream text on moss. */
+button.calview-toggle-item[role="tab"][aria-selected="true"],
+button.calview-toggle-item[role="tab"][aria-selected="true"]:hover {
+  color: #f8faf5 !important;
+}
+
+/* Replace Thunderbird's hardcoded blue today/selection accents. */
+:root {
+  --viewBackground: #f8faf5;
+  --viewWeekendBackground: #e5e9d8;
+  --viewDayLabelSelectedBackground: #5b7146;
+  --viewDayLabelSelectedColor: #f8faf5;
+  --viewTodayWeekendBackground: #dde7d8;
+  --viewTodayLabelColor: #f8faf5;
+  --viewTodayLabelBackground: #5b7146;
+  --viewTodayBackground: #dde7d8;
+  --viewDragboxBackground: #5b7146;
+  --viewDropshadowBackground: #5b7146;
+  --viewHighlightBorderColor: transparent;
+  --selected-item-text-color: #f8faf5;
+}
+
+calendar-month-day-box-item[selected="true"].calendar-color-box,
+calendar-event-box[selected="true"].calendar-color-box,
+calendar-editable-item[selected="true"].calendar-color-box {
+  background-color: #5b7146 !important;
+  color: #f8faf5 !important;
+}
+
+.day-column-weekend :is(calendar-header-container, .multiday-hour-box),
+.calendar-month-day-box-day-off {
+  background-color: #e5e9d8 !important;
+}
+
+.calendar-month-day-box-current-month[relation="today"],
+.calendar-month-day-box-day-off[relation="today"],
+.calendar-month-day-box-other-month[relation="today"],
+.day-column-today :is(calendar-header-container, .multiday-hour-box),
+.day-column-today.day-column-weekend:not(.day-column-selected)
+  :is(calendar-header-container, .multiday-hour-box) {
+  background-color: #dde7d8 !important;
+}
+
+.calendar-month-day-box-date-label[relation="today"] {
+  color: #f8faf5 !important;
+  background-color: #5b7146 !important;
+}
+
+.day-column-selected calendar-header-container,
+.day-column-selected .day-column-heading,
+.day-column-selected .multiday-hour-box,
+.day-column-selected calendar-event-column {
+  border-inline-width: 0 !important;
+  border-inline-color: transparent !important;
+}
+
+/* Mini-month month/year switchers and main calendar prev/next/today. */
+calendar-minimonth {
+  --mmBoxBackground: #e5e9d8;
+  --mmBoxBorderColor: #d9e1d3;
+  --mmBoxItemColor: #c5d0c1;
+  --mmBoxItemBorderColor: #d9e1d3;
+  --mmMainBackground: #f1f3ea;
+}
+
+.minimonth-nav-section {
+  background-color: #e5e9d8 !important;
+  border-color: #d9e1d3 !important;
+}
+
+.minimonth-header button,
+.minimonth-header-btn,
+.button.minimonth-nav-btn {
+  color: #123b30 !important;
+  stroke: #123b30 !important;
+}
+
+.minimonth-header button:hover,
+.minimonth-header-btn:hover,
+.button.minimonth-nav-btn:is(:hover, :active) {
+  background-color: #dde7d8 !important;
+}
+
+#previousViewButton,
+#nextViewButton,
+#todayViewButton {
+  background-color: #e5e9d8 !important;
+  border-color: #d9e1d3 !important;
+  color: #123b30 !important;
+  stroke: #123b30 !important;
+}
+
+#previousViewButton:hover,
+#nextViewButton:hover,
+#todayViewButton:hover {
+  background-color: #dde7d8 !important;
+}
+
+/* Mini-month Sat/Sun columns when the week starts on Monday. */
+.minimonth-cal-box th:nth-child(7),
+.minimonth-cal-box th:nth-child(8),
+.minimonth-cal-box td:nth-child(7),
+.minimonth-cal-box td:nth-child(8) {
+  background-color: #e5e9d8 !important;
+}

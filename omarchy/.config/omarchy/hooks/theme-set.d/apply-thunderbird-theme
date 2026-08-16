@@ -1,0 +1,167 @@
+#!/bin/bash
+# Apply a theme's Thunderbird WebExtension theme (thunderbird/manifest.json).
+# Called by omarchy-hook after `omarchy theme set`. Missing theme files are a no-op.
+
+set -euo pipefail
+
+THEME_NAME="${1:-}"
+CURRENT_THEME_DIR="$HOME/.local/state/omarchy/current/theme"
+THEME_SRC="$CURRENT_THEME_DIR/thunderbird"
+
+if [[ -z $THEME_NAME && -f $HOME/.local/state/omarchy/current/theme.name ]]; then
+  THEME_NAME=$(<"$HOME/.local/state/omarchy/current/theme.name")
+fi
+
+if [[ ! -f $THEME_SRC/manifest.json && -n $THEME_NAME ]]; then
+  THEME_SRC="$HOME/.config/omarchy/themes/$THEME_NAME/thunderbird"
+fi
+
+if [[ ! -f $THEME_SRC/manifest.json ]]; then
+  exit 0
+fi
+
+python3 - "$THEME_SRC" <<'PY'
+from __future__ import annotations
+
+import json
+import re
+import sys
+import zipfile
+from pathlib import Path
+
+theme_src = Path(sys.argv[1]).expanduser().resolve()
+manifest = json.loads((theme_src / "manifest.json").read_text())
+addon_id = (
+    manifest.get("browser_specific_settings", {})
+    .get("gecko", {})
+    .get("id")
+) or manifest.get("applications", {}).get("gecko", {}).get("id")
+if not addon_id or "/" in addon_id or addon_id in {".", ".."}:
+    raise SystemExit("Thunderbird theme manifest is missing a valid gecko id")
+
+marker_begin = "// BEGIN omarchy-thunderbird-theme"
+marker_end = "// END omarchy-thunderbird-theme"
+css_marker_begin = "/* BEGIN omarchy-thunderbird-theme */"
+css_marker_end = "/* END omarchy-thunderbird-theme */"
+user_js_block = "\n".join(
+    [
+        marker_begin,
+        f'user_pref("extensions.activeThemeID", {json.dumps(addon_id)});',
+        # Allow this profile-sideloaded theme to enable without a prompt.
+        # 14 = default 15 minus SCOPE_PROFILE (1).
+        'user_pref("extensions.autoDisableScopes", 14);',
+        'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);',
+        'user_pref("browser.display.use_system_colors", false);',
+        'user_pref("browser.display.background_color", "#F8FAF5");',
+        'user_pref("browser.display.foreground_color", "#123B30");',
+        marker_end,
+        "",
+    ]
+)
+
+
+def thunderbird_roots() -> list[Path]:
+    roots = [
+        Path.home() / ".thunderbird",
+        Path.home() / ".var/app/org.mozilla.Thunderbird/.thunderbird",
+        Path.home() / "snap/thunderbird/common/.thunderbird",
+    ]
+    return [root for root in roots if (root / "profiles.ini").is_file()]
+
+
+def profile_dirs(root: Path) -> list[Path]:
+    profiles: list[Path] = []
+    current_path = None
+    is_relative = True
+    for raw in (root / "profiles.ini").read_text().splitlines():
+        line = raw.strip()
+        if line.startswith("[") and line.endswith("]"):
+            if current_path:
+                profiles.append(current_path)
+            current_path = None
+            is_relative = True
+            continue
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip().lower()
+        value = value.strip()
+        if key == "isrelative":
+            is_relative = value != "0"
+        elif key == "path":
+            current_path = (root / value) if is_relative else Path(value)
+    if current_path:
+        profiles.append(current_path)
+
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for profile in profiles:
+        resolved = profile.expanduser()
+        if resolved in seen or not resolved.is_dir():
+            continue
+        seen.add(resolved)
+        unique.append(resolved)
+    return unique
+
+
+def write_xpi(profile: Path) -> None:
+    extensions = profile / "extensions"
+    extensions.mkdir(parents=True, exist_ok=True)
+    xpi_path = extensions / f"{addon_id}.xpi"
+    tmp_path = xpi_path.with_suffix(".xpi.tmp")
+    with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(theme_src.rglob("*")):
+            if not path.is_file():
+                continue
+            zf.write(path, path.relative_to(theme_src).as_posix())
+    tmp_path.replace(xpi_path)
+
+
+def upsert_marked_file(path: Path, begin: str, end: str, block: str) -> None:
+    text = path.read_text() if path.exists() else ""
+    pattern = re.compile(
+        rf"{re.escape(begin)}\n.*?{re.escape(end)}\n?",
+        re.DOTALL,
+    )
+    if pattern.search(text):
+        text = pattern.sub(block, text, count=1)
+    else:
+        if text and not text.endswith("\n"):
+            text += "\n"
+        if text:
+            text += "\n"
+        text += block
+    path.write_text(text)
+
+
+def upsert_user_js(profile: Path) -> None:
+    upsert_marked_file(profile / "user.js", marker_begin, marker_end, user_js_block)
+
+
+def upsert_message_body_styles(profile: Path) -> None:
+    source = theme_src / "content.css"
+    if not source.is_file():
+        return
+    chrome = profile / "chrome"
+    chrome.mkdir(parents=True, exist_ok=True)
+    css = source.read_text().strip()
+    block = f"{css_marker_begin}\n{css}\n{css_marker_end}\n"
+    upsert_marked_file(
+        chrome / "userContent.css",
+        css_marker_begin,
+        css_marker_end,
+        block,
+    )
+
+
+installed = False
+for root in thunderbird_roots():
+    for profile in profile_dirs(root):
+        write_xpi(profile)
+        upsert_user_js(profile)
+        upsert_message_body_styles(profile)
+        installed = True
+
+if not installed:
+    raise SystemExit(0)
+PY
