@@ -10,7 +10,7 @@ carry personal overrides.
 
 ```bash
 # Apply all configurations
-stow -t ~ hyprland omarchy xcompose nautilus scripts espanso
+stow -t ~ hyprland omarchy xcompose nautilus scripts espanso cursor vscode
 
 # Or apply individually
 stow -t ~ hyprland    # Hyprland overrides (bindings.lua, input.lua, monitors.lua)
@@ -19,6 +19,9 @@ stow -t ~ xcompose    # XCompose shortcuts
 stow -t ~ nautilus    # Nautilus scripts
 stow -t ~ scripts     # Scripts
 stow -t ~ espanso     # Espanso snippets
+stow -t ~ cursor      # Cursor user settings and keybindings
+stow -t ~ vscode      # VS Code user settings
+
 
 # Apply the theme
 omarchy theme set daan-theme

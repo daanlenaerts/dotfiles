@@ -1,0 +1,27 @@
+{ "workbench.colorTheme": "Omarchy", 
+    "update.mode": "none",
+    "git.openRepositoryInParentFolders": "always",
+    
+    "editor.minimap.enabled": false,
+    "cursor.cpp.disabledLanguages": [],
+    "workbench.activityBar.orientation": "vertical",
+    "window.restoreWindows": "none",
+    "git.confirmSync": false,
+    "git.autoRepositoryDetection": "subFolders",
+    "git.repositoryScanMaxDepth": -1,
+    "claudeCode.preferredLocation": "panel",
+    "[typescript]": {
+        "editor.defaultFormatter": "vscode.typescript-language-features"
+    },
+    "explorer.confirmDragAndDrop": false,
+    "git.enableSmartCommit": true,
+    "remote.autoForwardPortsSource": "hybrid",
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "chatgpt.localeOverride": "en-US",
+    
+    "window.autoDetectColorScheme": false,
+    
+    
+}

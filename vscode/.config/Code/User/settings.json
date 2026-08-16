@@ -1,0 +1,6 @@
+{ "workbench.colorTheme": "Omarchy",   
+  "update.mode": "none",
+  "git.openRepositoryInParentFolders": "always",
+  
+  "editor.minimap.enabled": false
+}
