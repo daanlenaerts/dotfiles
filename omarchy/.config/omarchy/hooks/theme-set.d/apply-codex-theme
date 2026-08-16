@@ -1,0 +1,168 @@
+#!/bin/bash
+# Apply a theme's Codex desktop appearance (codex-theme-v1) to ~/.codex/config.toml.
+# Called by omarchy-hook after `omarchy theme set`. Missing theme files are a no-op.
+
+set -euo pipefail
+
+THEME_NAME="${1:-}"
+CODEX_CONFIG="${CODEX_CONFIG:-$HOME/.codex/config.toml}"
+CURRENT_THEME_FILE="$HOME/.local/state/omarchy/current/theme/codex-theme-v1"
+
+if [[ -z $THEME_NAME && -f $HOME/.local/state/omarchy/current/theme.name ]]; then
+  THEME_NAME=$(<"$HOME/.local/state/omarchy/current/theme.name")
+fi
+
+THEME_FILE="$CURRENT_THEME_FILE"
+if [[ ! -f $THEME_FILE && -n $THEME_NAME ]]; then
+  THEME_FILE="$HOME/.config/omarchy/themes/$THEME_NAME/codex-theme-v1"
+fi
+
+if [[ ! -f $THEME_FILE ]]; then
+  exit 0
+fi
+
+if [[ ! -d $HOME/.codex ]]; then
+  exit 0
+fi
+
+python3 - "$CODEX_CONFIG" "$THEME_FILE" <<'PY'
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    tomllib = None
+
+config_path = Path(sys.argv[1]).expanduser()
+theme_path = Path(sys.argv[2]).expanduser()
+prefix = "codex-theme-v1:"
+
+
+def toml_value(value):
+    if isinstance(value, str):
+        return json.dumps(value)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    raise TypeError(f"Unsupported TOML value: {value!r}")
+
+
+def parse_theme(source: str) -> dict:
+    specs = {}
+    for raw_line in source.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if not line.startswith(prefix):
+            raise SystemExit(f"Expected {prefix} line in {theme_path}")
+        payload = json.loads(line[len(prefix) :])
+        variant = payload.get("variant")
+        if variant not in {"light", "dark"}:
+            raise SystemExit(f"Unsupported Codex theme variant: {variant!r}")
+        if not isinstance(payload.get("theme"), dict):
+            raise SystemExit(f"Codex theme payload for {variant} must contain a theme object")
+        specs[variant] = payload
+    if not specs:
+        raise SystemExit(f"No {prefix} entries found in {theme_path}")
+    return specs
+
+
+def render_theme_block(variant: str, spec: dict) -> str:
+    title = variant.title()
+    theme = spec["theme"]
+    required = ["accent", "contrast", "ink", "opaqueWindows", "surface"]
+    missing = [key for key in required if key not in theme]
+    if missing:
+        raise SystemExit(f"{variant} Codex theme is missing keys: {', '.join(missing)}")
+
+    lines = [f"[desktop.appearance{title}ChromeTheme]"]
+    for key in required:
+        lines.append(f"{key} = {toml_value(theme[key])}")
+
+    lines.append("")
+    lines.append(f"[desktop.appearance{title}ChromeTheme.fonts]")
+    fonts = theme.get("fonts") or {}
+    for key in ["code", "ui"]:
+        value = fonts.get(key)
+        if value is not None:
+            lines.append(f"{key} = {toml_value(value)}")
+
+    lines.append("")
+    lines.append(f"[desktop.appearance{title}ChromeTheme.semanticColors]")
+    semantic = theme.get("semanticColors") or {}
+    for key in ["diffAdded", "diffRemoved", "skill"]:
+        value = semantic.get(key)
+        if value is not None:
+            lines.append(f"{key} = {toml_value(value)}")
+
+    return "\n".join(lines) + "\n"
+
+
+def upsert_desktop_keys(source: str, specs: dict[str, dict]) -> str:
+    keys = {}
+    for variant, spec in specs.items():
+        code_theme_id = spec.get("codeThemeId")
+        if code_theme_id:
+            keys[f"appearance{variant.title()}CodeThemeId"] = code_theme_id
+
+    if not keys:
+        return source
+
+    key_lines = [f"{key} = {toml_value(value)}" for key, value in keys.items()]
+    desktop_pattern = re.compile(r"(?ms)^\[desktop\]\n(?P<body>.*?)(?=^\[|\Z)")
+    match = desktop_pattern.search(source)
+
+    if not match:
+        prefix_block = "[desktop]\n" + "\n".join(key_lines) + "\n\n"
+        return prefix_block + source.lstrip("\n")
+
+    body = match.group("body")
+    inserted = []
+    for key_line in key_lines:
+        key = key_line.split(" = ", 1)[0]
+        key_pattern = re.compile(rf"(?m)^{re.escape(key)}\s*=.*$")
+        if key_pattern.search(body):
+            body = key_pattern.sub(key_line, body, count=1)
+        else:
+            inserted.append(key_line)
+
+    if inserted:
+        body = "\n".join(inserted) + "\n" + body
+
+    return source[: match.start("body")] + body + source[match.end("body") :]
+
+
+def upsert_theme_block(source: str, variant: str, block: str) -> str:
+    title = variant.title()
+    table = f"desktop.appearance{title}ChromeTheme"
+    pattern = re.compile(
+        rf"(?ms)^\[{re.escape(table)}\]\n.*?"
+        rf"(?=^\[(?!{re.escape(table)}(?:\.|\]))|\Z)"
+    )
+    replacement = block.rstrip("\n") + "\n\n"
+    if pattern.search(source):
+        return pattern.sub(replacement, source, count=1)
+    if source and not source.endswith("\n"):
+        source += "\n"
+    return source + "\n" + replacement
+
+
+specs = parse_theme(theme_path.read_text())
+config_path.parent.mkdir(parents=True, exist_ok=True)
+text = config_path.read_text() if config_path.exists() else ""
+text = upsert_desktop_keys(text, specs)
+for variant in ["light", "dark"]:
+    if variant in specs:
+        text = upsert_theme_block(text, variant, render_theme_block(variant, specs[variant]))
+
+if tomllib is not None:
+    tomllib.loads(text)
+
+config_path.write_text(text)
+PY
