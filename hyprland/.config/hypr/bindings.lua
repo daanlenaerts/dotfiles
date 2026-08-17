@@ -65,9 +65,6 @@ hl.unbind("SUPER + CTRL + RIGHT")
 o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "r-1" }))
 o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "r+1" }))
 
-o.bind("SUPER + A", "Previous workspace", hl.dsp.focus({ workspace = "r-1" }))
-o.bind("SUPER + D", "Next workspace", hl.dsp.focus({ workspace = "r+1" }))
-
 o.bind("SUPER + CTRL + SHIFT + LEFT", "Move to previous workspace", hl.dsp.window.move({ workspace = "r-1" }))
 o.bind("SUPER + CTRL + SHIFT + RIGHT", "Move to next workspace", hl.dsp.window.move({ workspace = "r+1" }))
 
@@ -112,3 +109,24 @@ o.window("org.gnome.Evince", {
   center = true,
   size = { "(monitor_w*0.5)", "(monitor_h*0.8)" },
 })
+
+---------------------------------------------------------------------------------
+-- https://github.com/mmsbrggr/omarchy-per-monitor-workspaces/tree/main
+
+-- Per-monitor workspaces: SUPER+N acts on the focused monitor.
+-- Added by the Per-monitor Workspaces bar widget. pcall so that removing
+-- the plugin costs these bindings rather than everything below this line.
+pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/mmsbrggr.per-monitor-workspaces/hypr/init.lua")
+
+-- SUPER+A / SUPER+D cycle this monitor's slots, matching SUPER+TAB.
+-- Bound after the plugin so they use its cycle rather than Hyprland's
+-- global r-1/r+1, which would jump to another screen.
+local pmw = _G.per_monitor_workspaces
+if pmw then
+  o.bind("SUPER + A", "Previous workspace", pmw.cycle(-1))
+  o.bind("SUPER + D", "Next workspace", pmw.cycle(1))
+else
+  o.bind("SUPER + A", "Previous workspace", hl.dsp.focus({ workspace = "r-1" }))
+  o.bind("SUPER + D", "Next workspace", hl.dsp.focus({ workspace = "r+1" }))
+end
+---------------------------------------------------------------------------------
