@@ -27,6 +27,10 @@ stow -t ~ vscode      # VS Code user settings
 omarchy theme set daan-theme
 omarchy theme set daan-forest
 
+# Per-monitor workspaces (not stowed; install via Omarchy)
+omarchy plugin add https://github.com/mmsbrggr/omarchy-per-monitor-workspaces.git --enable
+omarchy bar set mmsbrggr.per-monitor-workspaces count 10 --json
+
 # Restart Espanso
 espanso service restart
 
@@ -37,6 +41,25 @@ source ~/.bashrc
 # Adopting a configuration after changes (e.g. a system update)
 stow -t ~ --adopt hyprland
 ```
+
+## Per-monitor workspaces
+
+Each screen gets its own 1–10 slots, so `SUPER+3` is *this* screen's third
+workspace rather than a global one that might live on the other monitor.
+
+The plugin is a third-party Omarchy clone, not part of this repo. Stow
+`hyprland` anyway: `bindings.lua` loads it with `pcall`, so a missing plugin
+skips those keys instead of breaking the rest of the file. `SUPER+A` /
+`SUPER+D` cycle this screen's slots once the plugin is present.
+
+```bash
+omarchy plugin add https://github.com/mmsbrggr/omarchy-per-monitor-workspaces.git --enable
+omarchy bar set mmsbrggr.per-monitor-workspaces count 10 --json
+```
+
+`SUPER+1` through `SUPER+0` then map to this screen's slots (`0` is 10). The
+count lives on the bar widget in `~/.config/omarchy/shell.json`, which this
+repo does not stow.
 
 ## GTK / Nautilus theme
 
