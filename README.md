@@ -14,7 +14,7 @@ stow -t ~ hyprland omarchy xcompose nautilus scripts espanso cursor vscode
 
 # Or apply individually
 stow -t ~ hyprland    # Hyprland overrides (bindings.lua, input.lua, monitors.lua)
-stow -t ~ omarchy     # Omarchy themes (daan-theme, daan-forest) and theme-set hooks
+stow -t ~ omarchy     # Omarchy themes (daan-theme, daan-forest), theme-set hooks, menu extension
 stow -t ~ xcompose    # XCompose shortcuts
 stow -t ~ nautilus    # Nautilus scripts
 stow -t ~ scripts     # Scripts
@@ -60,6 +60,33 @@ omarchy bar set mmsbrggr.per-monitor-workspaces count 10 --json
 `SUPER+1` through `SUPER+0` then map to this screen's slots (`0` is 10). The
 count lives on the bar widget in `~/.config/omarchy/shell.json`, which this
 repo does not stow.
+
+## Mirroring onto a TV
+
+Omarchy's stock **Mirror Display** makes the external display mirror the laptop.
+The laptop panel is 3:2 (2880x1920) and a TV is 16:9, so the TV ends up
+pillarboxed while the laptop uses its full screen.
+
+`hypr-mirror-external` inverts that: the external display stays the real one at
+its native mode, and the laptop panel shows the letterboxed copy.
+
+```bash
+hypr-mirror-external on       # laptop mirrors the external display
+hypr-mirror-external off      # back to extended
+hypr-mirror-external toggle   # default with no argument
+hypr-mirror-external status   # exit 0 when active
+```
+
+Also in the Omarchy menu under **Hardware -> Mirror From External**, via
+`omarchy/.config/omarchy/extensions/omarchy-menu.jsonc`.
+
+It deliberately reuses Omarchy's own toggle flag
+(`~/.local/state/omarchy/toggles/hypr/internal-monitor-mirror.lua`) instead of a
+new one, so Omarchy's lifecycle still applies: stock Mirror Display turns this
+off, and `omarchy-hyprland-monitor-internal-mirror recover` clears it when the
+external display is unplugged. Both only test whether that file exists, not what
+is inside it. The flip side is that switching stock Mirror Display back *on*
+rewrites the file with the stock direction.
 
 ## GTK / Nautilus theme
 

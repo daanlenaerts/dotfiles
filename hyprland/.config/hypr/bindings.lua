@@ -77,6 +77,15 @@ o.bind("F3", "Toggle terminal workspace", hl.dsp.workspace.toggle_special("termi
 o.bind("F4", "Toggle browser workspace", hl.dsp.workspace.toggle_special("browser"))
 o.bind("SUPER + E", "Toggle email workspace", hl.dsp.workspace.toggle_special("email"))
 
+-- Displays ---------------------------------------------------------------------
+
+-- Was: toggle laptop display mirroring, which makes the external display mirror
+-- the laptop. A 3:2 panel on a 16:9 TV pillarboxes the TV. This mirrors the
+-- other way, so the TV runs its native mode and the laptop takes the bars.
+-- Absolute path: Hyprland's exec has no ~/scripts on PATH (that is .bashrc).
+hl.unbind("SUPER + CTRL + ALT + Delete")
+o.bind("SUPER + CTRL + ALT + Delete", "Toggle mirroring from external display", "$HOME/scripts/hypr-mirror-external toggle")
+
 -- Mouse -----------------------------------------------------------------------
 
 -- Was: scroll active workspace forward/backward. SUPER + scroll walks through
