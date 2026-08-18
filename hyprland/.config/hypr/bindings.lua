@@ -8,13 +8,16 @@
 local home = os.getenv("HOME")
 
 -- Browser profiles ------------------------------------------------------------
+-- omarchy-launch-browser treats any extra flag as a URL and then focuses an
+-- already-open Brave window, which switches to that window's workspace before
+-- the new one maps. Launch Brave directly so a new window stays on this workspace.
 
 hl.unbind("SUPER + SHIFT + RETURN")
-o.bind("SUPER + SHIFT + RETURN", "Browser", 'omarchy-launch-browser --profile-directory="Profile 1"')
+o.bind("SUPER + SHIFT + RETURN", "Browser", { launch = 'brave --new-window --profile-directory="Profile 1"' })
 
 -- Was: toggle window gaps
 hl.unbind("SUPER + SHIFT + BACKSPACE")
-o.bind("SUPER + SHIFT + BACKSPACE", "Browser", 'omarchy-launch-browser --profile-directory="Profile 3"')
+o.bind("SUPER + SHIFT + BACKSPACE", "Browser", { launch = 'brave --new-window --profile-directory="Profile 3"' })
 
 -- Applications ----------------------------------------------------------------
 
