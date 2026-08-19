@@ -137,20 +137,21 @@ writes that file into each profile's `extensions/` directory).
 
 ## LibreOffice theme (daan-forest)
 
-daan-forest includes a LibreOffice appearance theme at
-`omarchy/.config/omarchy/themes/daan-forest/libreoffice/`, tuned for Calc:
-moss sheet canvas, a quiet grid, header and KPI fills, and a 12-color chart
-series.
+daan-forest includes a LibreOffice **UI** appearance theme at
+`omarchy/.config/omarchy/themes/daan-forest/libreoffice/`. Writer documents stay
+on LibreOffice defaults: white page, black text, and the built-in styles.
+Calc still gets a quiet grid plus optional palettes for fills and charts.
 
 **Auto-apply:** `stow -t ~ omarchy` installs a `theme-set` hook. After that,
 `omarchy theme set daan-forest` writes the **Daan Forest** color scheme into
-LibreOffice, selects the matching palettes, and copies the document theme used
-by Format → Theme. Restart LibreOffice so it reloads the registry. Themes
-without a `libreoffice/Theme.xcu` remove that color scheme and palettes so
+LibreOffice (toolbars, menus, and the area around the page) and copies the Calc
+palettes. Restart LibreOffice so it reloads the registry. Themes without a
+`libreoffice/Theme.xcu` remove that color scheme and palettes so
 LibreOffice's default appearance returns.
 
 **Manual install:** Tools → Extension Manager → Add, then choose a packed
 `com.daanlenaerts.daan-forest.libreoffice.oxt` (zip the `libreoffice/` folder
 contents). After install, pick **Daan Forest** under Tools → Options →
-LibreOffice → Appearance. In Calc, Format → Theme lists the same palette for
-headers, accents, and charts.
+LibreOffice → Appearance. Leave **Use white document background** enabled so
+Writer pages stay white. Calc palettes appear in the color picker; Format →
+Theme is left at LibreOffice's default document styles.

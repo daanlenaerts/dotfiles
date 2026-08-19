@@ -2,6 +2,7 @@
 # Apply a theme's LibreOffice appearance (libreoffice/Theme.xcu).
 # Called by omarchy-hook after `omarchy theme set`. Missing theme files revert
 # the managed color scheme, palettes, and Calc tweaks.
+# Document content stays default: white page, black text, no Format → Theme.
 
 set -euo pipefail
 
@@ -32,7 +33,7 @@ state_path = Path.home() / ".local/state/omarchy/theme-hooks/libreoffice.json"
 fallback_state = {
     "scheme_name": "Daan Forest",
     "palettes": ["daan-forest.soc", "daan-forest-chart.soc"],
-    "document_themes": ["Daan Forest.theme"],
+    "document_themes": [],
 }
 
 OOR = "http://openoffice.org/2001/registry"
@@ -254,6 +255,12 @@ def apply_registry(
     )
     text = upsert_simple(
         text,
+        "/org.openoffice.Office.Common/Appearance",
+        "UseOnlyWhiteDocBackground",
+        "true",
+    )
+    text = upsert_simple(
+        text,
         "/org.openoffice.Office.Common/UserColors",
         "PaletteName",
         scheme_name,
@@ -288,6 +295,11 @@ def apply_registry(
         item("/org.openoffice.Office.UI/ColorScheme", "CurrentColorScheme", scheme_name),
         item("/org.openoffice.Office.Common/Appearance", "ApplicationAppearance", "1"),
         item("/org.openoffice.Office.Common/Appearance", "LibreOfficeTheme", "1"),
+        item(
+            "/org.openoffice.Office.Common/Appearance",
+            "UseOnlyWhiteDocBackground",
+            "true",
+        ),
         item("/org.openoffice.Office.Common/UserColors", "PaletteName", scheme_name),
         item("/org.openoffice.Office.Calc/Content/Display", "ValueHighlighting", "false"),
         item("/org.openoffice.Office.Calc/Content/Display", "ColumnRowHighlighting", "true"),
@@ -326,6 +338,11 @@ def revert_registry(user_dir: Path, scheme_name: str) -> None:
         "/org.openoffice.Office.Common/Appearance",
         "LibreOfficeTheme",
         "0",
+    )
+    text = delete_simple(
+        text,
+        "/org.openoffice.Office.Common/Appearance",
+        "UseOnlyWhiteDocBackground",
     )
     text = delete_simple(
         text,
@@ -377,7 +394,9 @@ previous = load_state() if state_path.is_file() else None
 state = {
     "scheme_name": scheme_name,
     "palettes": [path.name for path in sorted(theme_src.glob("*.soc"))],
-    "document_themes": [path.name for path in sorted(theme_src.glob("*.theme"))],
+    # Keep Format → Theme document palettes out of the user profile so Writer
+    # (and other apps) stay on LibreOffice's default document styles.
+    "document_themes": [],
 }
 save_state(state)
 
@@ -396,6 +415,8 @@ for user_dir in libreoffice_roots():
         delete_named_files(user_dir, "themes", stale_themes)
     copy_named_files(user_dir, "config", state["palettes"])
     copy_named_files(user_dir, "themes", state["document_themes"])
+    if not state["document_themes"]:
+        delete_named_files(user_dir, "themes", ["Daan Forest.theme"])
     apply_registry(
         user_dir,
         scheme_name,

@@ -1,1 +1,1 @@
-Light forest appearance for LibreOffice, tuned for Calc: moss sheet canvas, quiet grid, formula/value/text highlighting, and matching chart colors.
+Light forest appearance for the LibreOffice UI. Writer pages and document styles stay at LibreOffice defaults; Calc keeps a quiet grid and matching palettes.
