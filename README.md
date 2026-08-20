@@ -21,7 +21,6 @@ stow -t ~ scripts     # Scripts
 stow -t ~ espanso     # Espanso snippets
 stow -t ~ cursor      # Cursor user settings and keybindings
 stow -t ~ vscode      # VS Code user settings
-stow -t ~ scripts     # Scripts
 
 # Apply a theme
 omarchy theme set daan-theme
