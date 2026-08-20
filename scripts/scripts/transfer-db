@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# Dump local PostgreSQL and restore it on a remote host over SSH.
+#
+# Targets the usual Omarchy Docker Postgres (localhost:5432, user postgres,
+# trust auth). Override with standard libpq variables: PGHOST, PGPORT, PGUSER.
+#
+#   transfer-db omarchy-desktop           # all user databases
+#   transfer-db omarchy-desktop mydb      # one database
+#   transfer-db -y omarchy-desktop        # skip confirmation
+
+set -euo pipefail
+
+usage() {
+  cat <<EOF >&2
+Usage: $(basename "$0") [-y] <ssh-host> [database]
+
+Dump local PostgreSQL and replace the matching database(s) on the remote host.
+
+  transfer-db omarchy-desktop           all user databases
+  transfer-db omarchy-desktop mydb      one database
+  transfer-db -y omarchy-desktop        skip confirmation
+EOF
+  exit 1
+}
+
+YES=0
+HOST=""
+DBNAME=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -y | --yes) YES=1 ;;
+    -h | --help) usage ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage
+      ;;
+    *)
+      if [[ -z $HOST ]]; then
+        HOST="$1"
+      elif [[ -z $DBNAME ]]; then
+        DBNAME="$1"
+      else
+        usage
+      fi
+      ;;
+  esac
+  shift
+done
+
+[[ -n $HOST ]] || usage
+
+valid_dbname() {
+  [[ $1 =~ ^[A-Za-z0-9_-]+$ ]]
+}
+
+if [[ -n $DBNAME ]] && ! valid_dbname "$DBNAME"; then
+  echo "Refusing database name with unexpected characters: $DBNAME" >&2
+  exit 1
+fi
+
+LOCAL_HOST="${PGHOST:-localhost}"
+LOCAL_PORT="${PGPORT:-5432}"
+LOCAL_USER="${PGUSER:-postgres}"
+REMOTE_PSQL="psql -h localhost -p 5432 -U postgres -d postgres -v ON_ERROR_STOP=1"
+SSH=(ssh -T -o ServerAliveInterval=30 "$HOST")
+
+psql_local() {
+  psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$LOCAL_USER" -d postgres -v ON_ERROR_STOP=1 -qAt "$@"
+}
+
+pg_dump_local() {
+  pg_dump -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$LOCAL_USER" "$@"
+}
+
+if ! pg_isready -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$LOCAL_USER" -q; then
+  echo "PostgreSQL is not reachable at $LOCAL_HOST:$LOCAL_PORT" >&2
+  exit 1
+fi
+
+if [[ -n $DBNAME ]]; then
+  DATABASES=("$DBNAME")
+  if [[ $(psql_local -c "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = '$DBNAME')") != t ]]; then
+    echo "Database '$DBNAME' does not exist locally" >&2
+    exit 1
+  fi
+else
+  mapfile -t DATABASES < <(
+    psql_local -c "SELECT datname FROM pg_database WHERE datallowconn AND NOT datistemplate AND datname <> 'postgres' ORDER BY datname"
+  )
+fi
+
+if [[ ${#DATABASES[@]} -eq 0 || -z ${DATABASES[0]:-} ]]; then
+  echo "No databases to transfer" >&2
+  exit 1
+fi
+
+for db in "${DATABASES[@]}"; do
+  if ! valid_dbname "$db"; then
+    echo "Refusing database name with unexpected characters: $db" >&2
+    exit 1
+  fi
+done
+
+echo "Local PostgreSQL at $LOCAL_HOST:$LOCAL_PORT (user $LOCAL_USER)"
+echo "Remote host: $HOST"
+echo "Databases:"
+printf '  %s\n' "${DATABASES[@]}"
+
+if [[ $YES -ne 1 ]]; then
+  if [[ ! -t 0 ]]; then
+    echo "Refusing to run non-interactively without --yes" >&2
+    exit 1
+  fi
+  read -r -p "Replace these database(s) on $HOST? [y/N] " reply
+  [[ $reply == [yY] || $reply == [yY][eE][sS] ]] || exit 1
+fi
+
+echo "Checking SSH and remote PostgreSQL..."
+"${SSH[@]}" "$REMOTE_PSQL -c 'SELECT current_user'" >/dev/null
+
+dump() {
+  local db
+  for db in "${DATABASES[@]}"; do
+    echo "Dumping $db..." >&2
+    if [[ $db == postgres ]]; then
+      pg_dump_local --clean --if-exists --dbname="$db"
+    else
+      pg_dump_local --create --clean --if-exists --dbname="$db"
+    fi
+  done
+}
+
+terminate_sql() {
+  echo "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname IS NOT NULL;"
+}
+
+echo "Restoring on $HOST..."
+{
+  terminate_sql
+  dump
+} | gzip -c | "${SSH[@]}" "gzip -dc | $REMOTE_PSQL -q"
+
+echo "Transferred ${#DATABASES[@]} database(s) to $HOST"

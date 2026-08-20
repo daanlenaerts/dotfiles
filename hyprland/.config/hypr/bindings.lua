@@ -40,6 +40,14 @@ o.bind("SUPER + SHIFT + E", "Email", { launch = "thunderbird" })
 o.bind("SUPER + SHIFT + T", "Activity", { tui = "btop" })
 o.bind("SUPER + SHIFT + L", "Toggl Track", { tui = home .. "/git/toggl-cli/toggl-cli" })
 
+-- Was: toggle single-window square aspect
+hl.unbind("SUPER + CTRL + BACKSPACE")
+o.bind(
+  "SUPER + CTRL + BACKSPACE",
+  "Herdr remote",
+  "omarchy-launch-terminal herdr --remote omarchy-desktop"
+)
+
 -- Web apps --------------------------------------------------------------------
 
 o.bind("SUPER + SHIFT + Q", "Claude", 'omarchy-launch-webapp "https://claude.ai" --profile-directory="Profile 1"')
