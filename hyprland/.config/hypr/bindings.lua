@@ -63,10 +63,29 @@ o.bind(
 )
 
 -- Screenshots -----------------------------------------------------------------
+-- Omasnap replaces Omarchy's screenshot tool. The same key toggles the
+-- overlay: first press opens it, second press dismisses it.
+-- https://github.com/tobi/omasnap
 
--- Was: Google Maps
+-- Was: Omarchy screenshot
+hl.unbind("PRINT")
+hl.unbind("F12")
+hl.unbind("ALT + SHIFT + 4")
+
+o.bind("PRINT", "Screenshot", "omasnap")
+o.bind("F12", "Screenshot", "omasnap")
+o.bind("ALT + SHIFT + 4", "Screenshot", "omasnap")
+
+-- Was: Google Maps, then Omarchy screenshot
 hl.unbind("SUPER + SHIFT + S")
-o.bind("SUPER + SHIFT + S", "Capture screenshot", "omarchy-capture-screenshot")
+o.bind("SUPER + SHIFT + S", "Screenshot", "omasnap")
+
+hl.layer_rule({
+  match = { namespace = "^omasnap$" },
+  no_anim = true,
+  animation = "none",
+  no_screen_share = true,
+})
 
 -- Workspaces ------------------------------------------------------------------
 
