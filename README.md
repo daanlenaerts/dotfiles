@@ -143,8 +143,10 @@ Calc still gets a quiet grid plus optional palettes for fills and charts.
 
 **Auto-apply:** `stow -t ~ omarchy` installs a `theme-set` hook. After that,
 `omarchy theme set daan-forest` writes the **Daan Forest** color scheme into
-LibreOffice (toolbars, menus, and the area around the page) and copies the Calc
-palettes. Restart LibreOffice so it reloads the registry. Themes without a
+LibreOffice (toolbars, menus, and the area around the page), copies the Calc
+palettes, and turns off LibreOffice 26.8's per-app notebookbar tint so Calc
+keeps the theme chrome instead of a mint overlay. Restart LibreOffice so it
+reloads the registry. Themes without a
 `libreoffice/Theme.xcu` remove that color scheme and palettes so
 LibreOffice's default appearance returns.
 

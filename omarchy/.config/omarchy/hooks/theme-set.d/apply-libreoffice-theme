@@ -1,7 +1,7 @@
 #!/bin/bash
 # Apply a theme's LibreOffice appearance (libreoffice/Theme.xcu).
 # Called by omarchy-hook after `omarchy theme set`. Missing theme files revert
-# the managed color scheme, palettes, and Calc tweaks.
+# the managed color scheme, palettes, Calc tweaks, and notebookbar tint.
 # Document content stays default: white page, black text, no Format → Theme.
 
 set -euo pipefail
@@ -289,6 +289,14 @@ def apply_registry(
         "GridLineColor",
         str(grid_line_color),
     )
+    # LibreOffice 26.8 tints the tabbed UI with a hardcoded per-app color
+    # (Calc: #3cbc45). 255 keeps the dialog/theme chrome instead of mint.
+    text = upsert_simple(
+        text,
+        "/org.openoffice.Office.Common/Misc",
+        "NotebookbarColorTransparency",
+        "255",
+    )
 
     extras = [
         scheme_item_xml(scheme_name),
@@ -309,6 +317,11 @@ def apply_registry(
             "true",
         ),
         item("/org.openoffice.Office.Calc/Layout/Line", "GridLineColor", str(grid_line_color)),
+        item(
+            "/org.openoffice.Office.Common/Misc",
+            "NotebookbarColorTransparency",
+            "255",
+        ),
     ]
     text = insert_missing(text, extras)
     registry.write_text(text)
@@ -359,6 +372,11 @@ def revert_registry(user_dir: Path, scheme_name: str) -> None:
         text,
         "/org.openoffice.Office.Calc/Layout/Line",
         "GridLineColor",
+    )
+    text = delete_simple(
+        text,
+        "/org.openoffice.Office.Common/Misc",
+        "NotebookbarColorTransparency",
     )
     text = insert_missing(
         text,
