@@ -41,6 +41,27 @@ source ~/.bashrc
 stow -t ~ --adopt hyprland
 ```
 
+## Lid behavior on external power
+
+Keep the laptop awake with the lid closed while plugged in, including when
+an external display disconnects or goes to sleep. Closing the lid on battery
+still suspends when undocked. If the display also supplies power and that
+power disappears, the battery behavior applies.
+
+Install the system configuration separately from the home-directory Stow packages,
+running these commands from this repository:
+
+```bash
+sudo install -D -m 644 --backup=numbered \
+  system/etc/systemd/logind.conf.d/60-external-power-lid.conf \
+  /etc/systemd/logind.conf.d/60-external-power-lid.conf
+sudo systemctl reload systemd-logind
+```
+
+The setting takes effect without a reboot. To undo it, remove
+`/etc/systemd/logind.conf.d/60-external-power-lid.conf` and reload
+`systemd-logind` again.
+
 ## Per-monitor workspaces
 
 Each screen gets its own 1–10 slots, so `SUPER+3` is *this* screen's third
