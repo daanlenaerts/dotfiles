@@ -89,6 +89,13 @@ hl.layer_rule({
 
 -- Workspaces ------------------------------------------------------------------
 
+-- Cycle windows in the active group instead of switching workspaces. Workspace
+-- cycling is already available through SUPER+A / SUPER+D.
+hl.unbind("SUPER + TAB")
+hl.unbind("SUPER + SHIFT + TAB")
+o.bind("SUPER + TAB", "Next window in group", hl.dsp.group.next())
+o.bind("SUPER + SHIFT + TAB", "Previous window in group", hl.dsp.group.prev())
+
 -- Was: move grouped window focus left/right
 hl.unbind("SUPER + CTRL + LEFT")
 hl.unbind("SUPER + CTRL + RIGHT")

@@ -1,3 +1,7 @@
+-- BEGIN hyprmoncfg wake settings
+-- Shared with Omarchy while hyprmoncfg manages displays.
+hl.monitor({ output = "eDP-1", mode = "preferred", position = "4010x1440", scale = 1.33333 })
+-- END hyprmoncfg wake settings
 -- Monitor layout is owned by hyprmoncfg: it writes ~/.config/hypr/hyprmoncfg-monitors.lua
 -- and hyprland.lua dofile()s that last, so nothing here defines or overrides monitors.
 --
