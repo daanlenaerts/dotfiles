@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Restart espanso when the set of attached keyboards changes.
+#
+# espanso 2.3.0 enumerates /dev/input/event* once, when the worker starts, and
+# never rescans. If a keyboard re-enumerates -- the Keychron hopping between USB
+# and Bluetooth, a dock being unplugged -- espanso drops the dead node from its
+# epoll set and never picks up the replacement:
+#
+#   16:17:27 kernel:  Keychron Q6 Ultra 8K Keyboard as .../uhid/...input24
+#   16:17:30 kernel:  usb 5-1: USB disconnect, device number 2
+#   16:17:30 espanso: Can't read from device /dev/input/event4 ... removing from epoll
+#
+# The service stays "running" and `espanso status` still says so, while every
+# keystroke goes unheard. Only a restart brings it back, so do that here.
+
+set -uo pipefail
+
+debounce=${ESPANSO_HOTPLUG_DEBOUNCE:-3}
+
+# A fingerprint of the keyboards espanso ought to be listening to.
+#
+# The device node's mtime is part of it because devtmpfs stamps it at creation:
+# unplugging and replugging a keyboard can hand it back the same event number,
+# and without the timestamp that re-enumeration would look like no change at all
+# even though espanso has already dropped the old file descriptor.
+#
+# espanso's own uinput device is left out. It is torn down and recreated by every
+# restart, so counting it would make this script trigger itself forever.
+keyboard_fingerprint() {
+  local dev node name
+  for dev in /dev/input/event*; do
+    [ -e "$dev" ] || continue
+    node=${dev##*/}
+    name=$(cat "/sys/class/input/$node/device/name" 2>/dev/null) || continue
+    [ "$name" = "Espanso virtual device" ] && continue
+    udevadm info -q property "$dev" 2>/dev/null | grep -qx 'ID_INPUT_KEYBOARD=1' || continue
+    printf '%s\t%s\t%s\n' "$node" "$(stat -c %Y "$dev" 2>/dev/null)" "$name"
+  done | sort
+}
+
+previous=$(keyboard_fingerprint)
+
+# --udev (rather than --kernel) reports events only once udev has finished
+# setting up the node, so the evdev device is readable by the time espanso
+# restarts and re-enumerates.
+udevadm monitor --udev --subsystem-match=input | while read -r _; do
+  # Collapse a burst into a single restart: one keyboard reconnect emits
+  # separate events for its keyboard, mouse and consumer-control endpoints.
+  while read -r -t "$debounce" _; do :; done
+
+  current=$(keyboard_fingerprint)
+  [ "$current" = "$previous" ] && continue
+  previous=$current
+
+  # Respect a deliberate `espanso service stop`; only revive what is meant to run.
+  systemctl --user is-enabled --quiet espanso.service || continue
+
+  echo "keyboard line-up changed, restarting espanso"
+  systemctl --user restart espanso.service
+done

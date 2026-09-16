@@ -1,0 +1,13 @@
+[Unit]
+Description=Restart espanso when the attached keyboards change
+After=espanso.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/scripts/espanso-input-hotplug
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

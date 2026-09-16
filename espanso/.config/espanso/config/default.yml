@@ -52,3 +52,12 @@
 # For a list of all the available options, visit the official docs at: https://espanso.org/docs/
 
 search_shortcut: off
+
+# --- Keyboard layout
+
+# Wayland gives espanso no way to read the active layout, so without this it
+# warns "unable to determine keyboard layout automatically" on every start and
+# falls back to a guess when mapping characters to key codes. Hyprland runs
+# plain US here (hyprctl devices).
+keyboard_layout:
+  layout: "us"

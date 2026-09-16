@@ -30,7 +30,9 @@ omarchy theme set daan-forest
 omarchy plugin add https://github.com/mmsbrggr/omarchy-per-monitor-workspaces.git --enable
 omarchy bar set mmsbrggr.per-monitor-workspaces count 10 --json
 
-# Restart Espanso
+# Restart Espanso (see "Espanso and keyboard hotplug" below for the units)
+systemctl --user daemon-reload
+systemctl --user enable --now espanso-input-hotplug
 espanso service restart
 
 # Add scripts to PATH
@@ -61,6 +63,65 @@ sudo systemctl reload systemd-logind
 The setting takes effect without a reboot. To undo it, remove
 `/etc/systemd/logind.conf.d/60-external-power-lid.conf` and reload
 `systemd-logind` again.
+
+## Espanso and keyboard hotplug
+
+Espanso used to go silent every few hours: the service still reported
+`active (running)` and `espanso status` still said "espanso is running", but no
+snippet expanded until `espanso service restart`.
+
+It was never crashing — there is not a single espanso core dump on this machine.
+Espanso 2.3.0 enumerates `/dev/input/event*` once, when the worker starts, and
+never rescans. The Keychron Q6 Ultra hops between USB and Bluetooth, and when it
+does espanso drops the dead node and never picks up the new one:
+
+```
+16:17:27 kernel:  Keychron Q6 Ultra 8K Keyboard as .../uhid/...input24   # Bluetooth, new node
+16:17:30 kernel:  usb 5-1: USB disconnect, device number 2               # USB path drops
+16:17:30 espanso: Can't read from device /dev/input/event4 ... removing from epoll
+```
+
+From there espanso is listening to devices nobody is typing on.
+`espanso-input-hotplug` watches udev and restarts espanso whenever the set of
+real keyboards changes. It debounces for 3s, because one reconnect emits
+separate events for a keyboard's keyboard, mouse and consumer-control endpoints,
+and it ignores espanso's own uinput device, which every restart tears down and
+recreates — counting that would make the watcher trigger itself forever.
+
+The fingerprint includes each device node's mtime, not just its `eventN` number:
+replugging can hand a keyboard back the same number, and espanso has still lost
+the file descriptor even though the name and node look unchanged.
+
+A second, unrelated symptom was a panic at almost every login:
+
+```
+[ERROR] thread 'detect thread' panicked at 'called `Result::unwrap()` on an
+        `Err` value: NoCompositor': espanso-detect/src/evdev/sync/wayland.rs:42
+```
+
+Espanso raced Hyprland's Wayland socket. `Restart=on-failure` recovered it three
+seconds later, so it only ever cost a slow start and a noisy journal. The
+`10-wait-for-compositor.conf` drop-in orders espanso after
+`graphical-session.target` and waits for the socket outright, since
+`espanso.service` is pulled in by `default.target` rather than by the graphical
+session. It is a drop-in because `espanso service register` rewrites
+`espanso.service` and would discard anything edited into it.
+
+Note that `~/.config/systemd/user/espanso.service.d/` must be a real directory,
+not a Stow symlink — systemd does not follow a symlinked drop-in directory, and
+silently reports no drop-ins at all. Create it before stowing:
+
+```bash
+mkdir -p ~/.config/systemd/user/espanso.service.d
+stow -t ~ espanso scripts
+systemctl --user daemon-reload
+systemctl --user enable --now espanso-input-hotplug
+systemctl --user show espanso.service -p DropInPaths   # must be non-empty
+```
+
+`config/default.yml` also pins `keyboard_layout: us`. Wayland gives espanso no
+way to read the active layout, so without it espanso warned on every start and
+guessed when mapping characters to key codes.
 
 ## Per-monitor workspaces
 
