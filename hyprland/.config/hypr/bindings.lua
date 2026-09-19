@@ -89,13 +89,6 @@ hl.layer_rule({
 
 -- Workspaces ------------------------------------------------------------------
 
--- Cycle windows in the active group instead of switching workspaces. Workspace
--- cycling is already available through SUPER+A / SUPER+D.
-hl.unbind("SUPER + TAB")
-hl.unbind("SUPER + SHIFT + TAB")
-o.bind("SUPER + TAB", "Next window in group", hl.dsp.group.next())
-o.bind("SUPER + SHIFT + TAB", "Previous window in group", hl.dsp.group.prev())
-
 -- Was: move grouped window focus left/right
 hl.unbind("SUPER + CTRL + LEFT")
 hl.unbind("SUPER + CTRL + RIGHT")
@@ -164,7 +157,7 @@ o.window("org.gnome.Evince", {
 -- the plugin costs these bindings rather than everything below this line.
 pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/mmsbrggr.per-monitor-workspaces/hypr/init.lua")
 
--- SUPER+A / SUPER+D cycle this monitor's slots, matching SUPER+TAB.
+-- SUPER+A / SUPER+D cycle this monitor's slots.
 -- Bound after the plugin so they use its cycle rather than Hyprland's
 -- global r-1/r+1, which would jump to another screen.
 local pmw = _G.per_monitor_workspaces
@@ -176,3 +169,10 @@ else
   o.bind("SUPER + D", "Next workspace", hl.dsp.focus({ workspace = "r+1" }))
 end
 ---------------------------------------------------------------------------------
+
+-- Cycle windows in the active group instead of switching workspaces. Bound after
+-- the plugin, which claims SUPER+TAB for per-monitor workspace cycling.
+hl.unbind("SUPER + TAB")
+hl.unbind("SUPER + SHIFT + TAB")
+o.bind("SUPER + TAB", "Next window in group", hl.dsp.group.next())
+o.bind("SUPER + SHIFT + TAB", "Previous window in group", hl.dsp.group.prev())
