@@ -87,6 +87,23 @@ hl.layer_rule({
   no_screen_share = true,
 })
 
+-- Windows ---------------------------------------------------------------------
+
+-- Was: full screen, which also hands the window the fullscreen state. Chromium
+-- reacts to that by hiding its tab bar. Go fullscreen internally only (client
+-- state stays 0), so the window covers the monitor while the app keeps drawing
+-- its normal chrome. Apps with a real fullscreen mode of their own -- video
+-- players, games -- still have their own key for it.
+hl.unbind("SUPER + F")
+o.bind("SUPER + F", "Full screen", function()
+  local window = hl.get_active_window()
+  if not window then
+    return
+  end
+  local internal = window.fullscreen ~= 0 and 0 or 2
+  hl.dispatch(hl.dsp.window.fullscreen_state({ internal = internal, client = 0 }))
+end)
+
 -- Workspaces ------------------------------------------------------------------
 
 -- Was: move grouped window focus left/right
