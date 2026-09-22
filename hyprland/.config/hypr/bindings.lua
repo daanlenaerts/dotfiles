@@ -107,6 +107,84 @@ o.bind("F3", "Toggle terminal workspace", hl.dsp.workspace.toggle_special("termi
 o.bind("F4", "Toggle browser workspace", hl.dsp.workspace.toggle_special("browser"))
 o.bind("SUPER + E", "Toggle email workspace", hl.dsp.workspace.toggle_special("email"))
 
+-- T3 Code lives in its own slideout (special workspace "t3"), tiled. F9 toggles
+-- the slideout and F10 docks T3 Code on the current workspace instead.
+
+local function t3_window()
+  for _, window in ipairs(hl.get_windows()) do
+    if window.class == "t3code" then
+      return window
+    end
+  end
+end
+
+local function t3_in_slideout(window)
+  return window.workspace and window.workspace.name == "special:t3"
+end
+
+-- While T3 Code is the only tiled window in the slideout, a left gap of half
+-- the monitor keeps it on the right half. Gaps are pixels, so there is one rule
+-- per monitor width. Registered at load and again before showing, in case a
+-- monitor was plugged in since.
+local t3_gap_rules = {}
+
+local function t3_ensure_gap_rule(monitor)
+  if not monitor then
+    return
+  end
+  local width = math.floor(monitor.width / monitor.scale)
+  local key = monitor.name .. ":" .. width
+  if t3_gap_rules[key] then
+    return
+  end
+  t3_gap_rules[key] = hl.workspace_rule({
+    workspace = "n[s:special:t3] w[t1] m[" .. monitor.name .. "]",
+    gaps_out = { top = 10, right = 10, bottom = 10, left = math.floor(width / 2) + 10 },
+  })
+end
+
+for _, monitor in ipairs(hl.get_monitors()) do
+  t3_ensure_gap_rule(monitor)
+end
+
+local function t3_undock(window)
+  local selector = "address:" .. window.address
+  hl.dispatch(hl.dsp.window.move({ workspace = "special:t3", follow = false, window = selector }))
+  hl.dispatch(hl.dsp.window.float({ action = "disable", window = selector }))
+end
+
+-- Launches T3 Code if it isn't running, and pulls it back from a workspace
+-- it was docked on.
+o.bind("F9", "Toggle T3 Code slideout", function()
+  t3_ensure_gap_rule(hl.get_active_monitor())
+  local window = t3_window()
+  if not window then
+    hl.exec_cmd(o.launch("t3code"))
+    return
+  end
+  if not t3_in_slideout(window) then
+    t3_undock(window)
+  end
+  hl.dispatch(hl.dsp.workspace.toggle_special("t3"))
+end)
+
+o.bind("F10", "Dock/undock T3 Code", function()
+  local window = t3_window()
+  if not window then
+    return
+  end
+  if t3_in_slideout(window) then
+    local selector = "address:" .. window.address
+    local current = hl.get_active_workspace()
+    hl.dispatch(hl.dsp.window.move({ workspace = "name:" .. current.name, window = selector }))
+    hl.dispatch(hl.dsp.window.float({ action = "disable", window = selector }))
+    hl.dispatch(hl.dsp.focus({ window = selector }))
+  else
+    t3_ensure_gap_rule(window.monitor)
+    t3_undock(window)
+  end
+end)
+
 -- Displays ---------------------------------------------------------------------
 
 -- Was: toggle laptop display mirroring, which makes the external display mirror
@@ -140,6 +218,9 @@ o.window("org\\.omarchy\\.toggl-cli.*", {
   center = true,
   size = { "(monitor_w*0.3)", "(monitor_h*0.5)" },
 })
+
+-- T3 Code opens in its slideout; the gap rule above puts it on the right half
+o.window("^t3code$", { workspace = "special:t3" })
 
 -- Evince, bigger than the standard Omarchy float
 o.window("org.gnome.Evince", {
