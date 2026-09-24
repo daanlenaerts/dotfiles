@@ -22,6 +22,9 @@ stow -t ~ espanso     # Espanso snippets
 stow -t ~ cursor      # Cursor user settings and keybindings
 stow -t ~ vscode      # VS Code user settings
 
+# Restart xcompose
+omarchy-restart-xcompose
+
 # Apply a theme
 omarchy theme set daan-theme
 omarchy theme set daan-forest

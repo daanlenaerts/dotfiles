@@ -3,6 +3,7 @@ include "/usr/share/omarchy/default/xcompose"
 # Identification
 <Multi_key> <space> <n> : "Daan Lenaerts"
 <Multi_key> <space> <e> : "me@daanlenaerts.com"
+<Multi_key> <space> <t> : "test123123"
 <Multi_key> <space> <b> : "0659689080"
 
 # Emoji
@@ -13,3 +14,5 @@ include "/usr/share/omarchy/default/xcompose"
 <Multi_key> <m> <b> : "😊" # blush
 <Multi_key> <m> <6> : "😄" # grin
 <Multi_key> <m> <t> : "🧸" # teddy bear
+<Multi_key> <m> <9> : "😕" # sad face
+<Multi_key> <m> <3> : "🥰" # hearts around face
