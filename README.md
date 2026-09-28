@@ -13,7 +13,7 @@ carry personal overrides.
 stow -t ~ hyprland omarchy xcompose nautilus scripts espanso cursor vscode scripts
 
 # Or apply individually
-stow -t ~ hyprland    # Hyprland overrides (bindings.lua, input.lua, monitors.lua)
+stow -t ~ hyprland    # Hyprland overrides (bindings.lua, input.lua, wide-left.lua)
 stow -t ~ omarchy     # Omarchy themes (daan-theme, daan-forest), theme-set hooks, menu extension
 stow -t ~ xcompose    # XCompose shortcuts
 stow -t ~ nautilus    # Nautilus scripts
@@ -45,6 +45,25 @@ source ~/.bashrc
 # Adopting a configuration after changes (e.g. a system update)
 stow -t ~ --adopt hyprland
 ```
+
+## Monitors and hyprmoncfg
+
+Display layout is managed by the hyprmoncfg Omarchy plugin, not by these
+dotfiles. hyprmoncfg and Omarchy's clamshell handling both rewrite
+`~/.config/hypr/monitors.lua`, so that file is a plain, untracked file on the
+machine. The dotfiles ship `wide-left.lua` instead, which only adds a workspace
+rule that keeps a lone tiled window from spanning the left-most wide monitor.
+Load it from `~/.config/hypr/hyprland.lua` with `require("hypr.wide-left")`.
+
+```bash
+omarchy plugin add https://github.com/crmne/omarchy-hyprmoncfg.git --enable
+hyprmoncfg manage          # adds its include to hyprland.lua
+hyprmoncfg doctor          # confirms the generated file loads last
+```
+
+Save a profile for every monitor combination you actually use, including a
+single external screen. With only a partial match the daemon retries a
+multi-monitor profile every few seconds and can switch the laptop panel off.
 
 ## Lid behavior on external power
 

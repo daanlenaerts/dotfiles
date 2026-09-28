@@ -1,9 +1,10 @@
--- BEGIN hyprmoncfg wake settings
--- Shared with Omarchy while hyprmoncfg manages displays.
-hl.monitor({ output = "eDP-1", mode = "preferred", position = "4010x1440", scale = 1.33333 })
--- END hyprmoncfg wake settings
 -- Monitor layout is owned by hyprmoncfg: it writes ~/.config/hypr/hyprmoncfg-monitors.lua
 -- and hyprland.lua dofile()s that last, so nothing here defines or overrides monitors.
+--
+-- This file is deliberately NOT monitors.lua. hyprmoncfg and Omarchy's clamshell
+-- script both rewrite ~/.config/hypr/monitors.lua (a "wake settings" block for
+-- the laptop panel), so that path stays a plain, untracked file they can own.
+-- hyprland.lua loads this module with require("hypr.wide-left").
 --
 -- What this file does own is one personal tweak: when a workspace on the
 -- LEFT-most monitor holds a single tiled window, reserve space on its left so
