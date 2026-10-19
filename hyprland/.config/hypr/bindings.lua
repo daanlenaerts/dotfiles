@@ -129,7 +129,7 @@ o.bind("SUPER + E", "Toggle email workspace", hl.dsp.workspace.toggle_special("e
 
 local function t3_window()
   for _, window in ipairs(hl.get_windows()) do
-    if window.class == "t3code" then
+    if window.class == "com.t3tools.T3Code" then
       return window
     end
   end
@@ -237,7 +237,7 @@ o.window("org\\.omarchy\\.toggl-cli.*", {
 })
 
 -- T3 Code opens in its slideout; the gap rule above puts it on the right half
-o.window("^t3code$", { workspace = "special:t3" })
+o.window("^com\\.t3tools\\.T3Code$", { workspace = "special:t3" })
 
 -- Evince, bigger than the standard Omarchy float
 o.window("org.gnome.Evince", {
@@ -274,3 +274,14 @@ hl.unbind("SUPER + TAB")
 hl.unbind("SUPER + SHIFT + TAB")
 o.bind("SUPER + TAB", "Next window in group", hl.dsp.group.next())
 o.bind("SUPER + SHIFT + TAB", "Previous window in group", hl.dsp.group.prev())
+
+-- flea --default: begin. Written by `flea --default`; `flea --default off` removes the block whole.
+hl.unbind("SUPER + SHIFT + F")
+o.bind("SUPER + SHIFT + F", "File manager", { launch = 'flea --gui' })
+hl.unbind("SUPER + ALT + SHIFT + F")
+o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)", { launch = 'flea --gui "$(omarchy-cmd-terminal-cwd)"' })
+-- flea --default: end.
+
+-- flea --picker: begin. Written by `flea --picker`; `flea --picker off` removes the block whole.
+o.window("com.thisisgm.flea.picker", { tag = "+floating-window" })
+-- flea --picker: end.
