@@ -1,0 +1,37 @@
+#!/bin/bash
+# Toggle the active workspace between dwindle and scrolling.
+# Replacement for omarchy-hyprland-workspace-layout-toggle: that one keys the
+# workspace rule on the numeric id, but Hyprland reads a leading "-" in a rule
+# as relative to the active workspace, so it never matches named workspaces
+# (the per-monitor ones, which have negative ids) and always chose scrolling.
+
+WS_JSON=$(hyprctl activeworkspace -j)
+ID=$(jq -r '.id' <<<"$WS_JSON")
+CURRENT=$(jq -r '.tiledLayout' <<<"$WS_JSON")
+DIR="$HOME/.local/state/omarchy/workspace-layouts"
+[[ $ID =~ ^-?[0-9]+$ ]] || exit 1
+
+if ((ID >= 1)); then
+  # Numbered workspace: keep the id so Omarchy's id-keyed tooling sees the file.
+  SELECTOR=$ID
+  FILE_KEY=$ID
+else
+  NAME=$(jq -r '.name' <<<"$WS_JSON")
+  [[ -n $NAME ]] || exit 1
+  # The saved file is executed as Lua, so escape quotes and backslashes.
+  SELECTOR="name:$(sed 's/[\\"]/\\&/g' <<<"$NAME")"
+  # No dots in the file name: Lua's require maps them to directory separators.
+  FILE_KEY="name-$(printf '%s' "$NAME" | tr -c 'A-Za-z0-9' '_')"
+fi
+
+case "$CURRENT" in
+  dwindle) NEW=scrolling ;;
+  *) NEW=dwindle ;;
+esac
+
+RULE="hl.workspace_rule({ workspace = \"$SELECTOR\", layout = \"$NEW\" })"
+mkdir -p "$DIR"
+printf '%s\n' "$RULE" >"$DIR/$FILE_KEY.lua"
+
+hyprctl eval "$RULE" >/dev/null
+omarchy-notification-send -g 󱂬 "Workspace layout set to $NEW"

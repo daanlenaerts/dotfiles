@@ -7,6 +7,11 @@
 
 local home = os.getenv("HOME")
 
+-- Stock toggle keys its workspace rule on the id, which doesn't match named
+-- (per-monitor) workspaces, so it always flipped to scrolling.
+hl.unbind("SUPER + L")
+o.bind("SUPER + L", "Toggle workspace layout", "$HOME/scripts/hypr-workspace-layout-toggle")
+
 -- Browser profiles ------------------------------------------------------------
 -- omarchy-launch-browser treats any extra flag as a URL and then focuses an
 -- already-open Brave window, which switches to that window's workspace before
